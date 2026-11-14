@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "the-nth-persona",
+  "version": "0.3.0",
+  "description": "Applies the active persona from the local Nth Persona app to Codex prompts.",
+  "author": {
+    "name": "The Nth Persona"
+  },
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "第N人格",
+        "shortDescription": "将当前人格应用到 Codex 后续回复",
+        "longDescription": "每次提交提示时，从本机第N人格服务读取当前规则并作为上下文追加。不会清除聊天记录。",
+        "category": "productivity"
+      }
+    }
+  }
+}

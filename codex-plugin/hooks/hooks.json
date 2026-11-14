@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/user_prompt_submit.ps1\"",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/user_prompt_submit.ps1\"",
+            "timeout": 5,
+            "statusMessage": "正在载入第N人格"
+          }
+        ]
+      }
+    ]
+  }
+}
