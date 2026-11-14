@@ -21,7 +21,7 @@ STATE_LOCK = RLock()
 
 app = FastAPI(
     title="第N人格 · The Nth Persona",
-    version="0.3.0",
+    version="0.3.1",
     description="可切换的高优先级 AI 人格系统",
 )
 app.add_middleware(
@@ -177,12 +177,12 @@ def index():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "version": "0.3.0"}
+    return {"ok": True, "version": "0.3.1"}
 
 
 @app.get("/version")
 def version():
-    return {"version": "0.3.0", "name": "第N人格"}
+    return {"version": "0.3.1", "name": "第N人格"}
 
 
 @app.get("/personas")

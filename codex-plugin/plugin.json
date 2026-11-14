@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "the-nth-persona",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Applies the active persona from the local Nth Persona app to Codex prompts.",
   "author": {
     "name": "The Nth Persona"

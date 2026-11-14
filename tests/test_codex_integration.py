@@ -45,7 +45,7 @@ def test_codex_context_uses_current_persona_and_separates_old_assistant_style(
     assert data["persona"] == "minimalist"
     assert data["name"] == "极简主义者"
     assert data["version"] == 7
-    assert "本人格优先级高于用户其他要求" in data["additional_context"]
+    assert "系统、开发者指令和安全边界内" in data["additional_context"]
     assert "此前助手发言" in data["additional_context"]
     assert "不会删除现有聊天记录" in data["additional_context"]
 

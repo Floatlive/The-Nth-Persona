@@ -8,7 +8,7 @@
 
 第N人格把人格规则放进可读的 `SKILL.md`，用本地页面切换当前人格，并通过 Codex `UserPromptSubmit` Hook 把当前规则追加到后续提示中。它不修改模型本身，也不删除聊天记录。
 
-- 当前版本：`v0.3.0`
+- 当前版本：`v0.3.1`
 - 适用范围：个人本地使用、Codex 桌面端接入、OpenAI 兼容 API
 - 项目形态：**Skills + Codex Plugin + Local App**
 
@@ -85,10 +85,10 @@ Hook 读取 /codex/context
 
 | 人格 | ID | 适合 |
 | --- | --- | --- |
-| 冷酷执行官 | `cold-executor` | 结果、行动、截止时间 |
-| 现实毒舌顾问 | `sharp-advisor` | 拆穿自我欺骗，直接指出问题 |
-| 赛博老中医 | `cyber-tcm` | 用状态隐喻拆解问题并给出行动处方 |
-| 极简主义者 | `minimalist` | 一次只推进最重要的一件事 |
+| 冷酷执行官 | `cold-executor` | 交付结果、最短动作、验收标准 |
+| 现实毒舌顾问 | `sharp-advisor` | 用证据检验叙事，指出真实取舍 |
+| 赛博老中医 | `cyber-tcm` | 非医疗隐喻与可观察的行为药方 |
+| 极简主义者 | `minimalist` | 找出不可省动作，设定停止条件 |
 | 信达雅 | `xin-da-ya` | 先信、再达、后雅；完整流程只属于此人格 |
 
 ## API

@@ -3,14 +3,14 @@
 > **每次更新后必须刷新本文件。**  
 > 转移时：把下面的 **第N人格.zip** 交给另一个 AI，并复制「交接提示词」。
 
-**项目版本：v0.3.0** · **交接文档更新：2026-11-14**
+**项目版本：v0.3.1** · **交接文档更新：2026-11-14**
 
 ---
 
 ## 交接提示词（复制给下一个 AI）
 
 ```
-这是「第N人格 / The Nth Persona」完整项目包（v0.3.0）。
+这是「第N人格 / The Nth Persona」完整项目包（v0.3.1）。
 请先完整阅读 HANDOFF.md，再读 README.md、server/main.py、index.html、各人格 SKILL.md。开始修改前先核对实际文件，不要仅凭本交接文档推断代码现状。
 
 硬性规则：
@@ -24,7 +24,7 @@
 - 页面点击立即 Toast「已切换至【…】」，并可在页内用 OpenAI 兼容 API 对话（Key 存在浏览器 localStorage）
 - 也可不启动服务：把 CHAT_BOOTSTRAP.md 贴进任意 AI 对话使用
 
-当前目标：以个人本地客户端为主，完成 Codex 桌面端接入；暂不部署公网或扩展其他 AI。GitHub 已完成 `v0.3.0` 首次版本发布。
+当前目标：以个人本地客户端为主，维护 Codex 桌面端接入；暂不部署公网或扩展其他 AI。GitHub 已完成 `v0.3.0` 首次版本发布，当前版本为 `v0.3.1`。
 ```
 
 **转移文件**：`第N人格.zip`（与本 HANDOFF 同级的压缩包，内含完整目录）
@@ -40,7 +40,7 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 
 | 层 | 作用 |
 |----|------|
-| 人格 Skill | 每人一个 `SKILL.md`，硬边界 + 禁止项 + 输出结构 |
+| 人格 Skill | 每人一个 `SKILL.md`，独立行为协议 + 安全边界 + 输出判据 |
 | 前端 `index.html` | 点卡片切换；Toast「已切换至」；页内聊天 |
 | 后端 `server/main.py` | 状态唯一文件 + `/chat` 注入当前人格 system prompt |
 | `CHAT_BOOTSTRAP.md` | 无服务时，复制到任意 AI 即可切换 |
@@ -56,7 +56,7 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 
 ### 已完成
 - [x] 命名：第N人格 / The Nth Persona
-- [x] 5 人格 Skill（高优先级、历史分析、禁止事项、示例）
+- [x] 5 人格 Skill（独立行为协议、历史边界、禁止事项、示例）
 - [x] 信达雅完整三难流程（仅 xin-da-ya）；其他人设仅轻量信/达/雅底线
 - [x] 前端点击切换 + Toast + 对话区系统消息「已切换至【…】」
 - [x] FastAPI：`/health` `/version` `/current` `/switch` `/history` `/personas` `/personas/{id}/prompt` `/reset` `/chat`；`GET /` 托管页面
@@ -73,6 +73,7 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 - [x] v0.2.7：移除宽松 CORS；current/history 原子写入并加进程内锁；损坏状态文件安全回退；前端改为后端确认后切换，切换/聊天互斥；聊天携带人格版本并校验，避免旧人格响应混入新会话；移除打包缓存文件
 - [x] v0.2.9：增加本地 Host 白名单；Windows / macOS / Linux 启动入口统一优先使用项目 `.venv`，缺依赖时才安装；增加后端回归测试入口
 - [x] v0.3.0：增加 Codex `UserPromptSubmit` 插件 Hook 与 `/codex/context`，切换后 Codex 后续提示读取当前人格
+- [x] v0.3.1：分别增强五个人格的独立决策协议和安全边界；新增人格契约回归测试
 
 ### 未做 / 可继续
 - [ ] 多用户（`user_id` 仍 default；无鉴权）
@@ -138,13 +139,23 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 - 验证：pytest 7 项通过；当前 Codex CLI 在临时 `CODEX_HOME` 中成功添加本地市场并安装插件；安装缓存中的 Hook 在 Windows PowerShell 5.1 下通过人格注入、UTF-8、无 Key 和服务离线提示测试。
 - 尚未完成：Codex 桌面端首次信任 Hook，以及在真实桌面聊天中观察一次模型回复。不得把隔离 CLI / Hook 测试表述成桌面端回复验收完成。
 
+## 3F. v0.3.1 人格规则增强与浏览器检查
+
+- 五个人格分别采用独立决策协议；修正提示词错误宣称可覆盖其他指令的问题。
+- 历史使用要求限定为当前可见且相关的内容；读取其他聊天须由用户明确提及并允许。
+- 真实浏览器已验证五个人格切换、切换提示、刷新后当前人格持久化、无 API Key 时的明确错误提示，以及清空聊天不改变当前人格。
+- 浏览器出现非阻断的 `/favicon.ico` 404 和密码输入框未放入表单提示。
+- 由于未配置用户 API Key，真实模型成功回复流程未执行；不得称端到端模型调用已验收。
+- 回归测试：`11 passed`。
+
 ## 3E. 测试边界与待验证项
 
 已知检查记录包括 Python/JavaScript 语法、ZIP 完整性、前端 DOM ID 引用、后端状态版本与损坏恢复逻辑、请求长度限制等。此前报告的隔离环境后端测试结果不能替代用户设备上的完整验收。以下仍未确认：
 
 - [ ] Windows 实机双击 `open.bat` 启动及浏览器打开
 - [ ] Windows PowerShell 执行 `open.ps1`
-- [ ] 在真实浏览器中完整点击五个人格、刷新后状态持久化、聊天与清空流程
+- [x] 在真实浏览器中点击五个人格、刷新验证状态持久化、检查缺失 API Key 的聊天错误与清空流程
+- [ ] 使用用户自己的有效 API Key 完成真实模型 API 端到端聊天
 - [ ] 使用用户自己的有效 API Key 完成真实模型 API 端到端聊天
 - [ ] macOS/Linux 启动脚本在目标设备上的实测
 
@@ -196,10 +207,10 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 
 | ID | 中文名 | 要点 |
 |----|--------|------|
-| cold-executor | 冷酷执行官 | 结果 / 行动 / 截止时间；禁止安慰 |
-| sharp-advisor | 现实毒舌顾问 | 拆穿自我欺骗；可锋利不辱骂 |
-| cyber-tcm | 赛博老中医 | 状态隐喻；非医疗诊断 |
-| minimalist | 极简主义者 | 一次只推一件事 |
+| cold-executor | 冷酷执行官 | 交付结果 / 最短动作 / 验收标准 |
+| sharp-advisor | 现实毒舌顾问 | 证据检验叙事 / 指出真实取舍 / 不辱骂 |
+| cyber-tcm | 赛博老中医 | 状态隐喻 / 行为实验 / 非医疗建议 |
+| minimalist | 极简主义者 | 唯一目标 / 不可省动作 / 停止条件 |
 | xin-da-ya | 信达雅 | 完整 信→达→雅（独家） |
 
 ---
@@ -263,7 +274,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 
 ## 10. 已知限制（诚实）
 
-- Skill「最高优先级」是提示约束，不是运行时强制；模型仍可能漂移
+- 人格 Skill 是模型上下文中的提示约束，不是运行时权限；不能覆盖系统、开发者指令或安全边界，模型仍可能漂移
 - `/chat` 依赖用户自备 API Key；项目不内置模型
 - 单用户、无鉴权，仅面向个人本机使用；不要直接暴露到公网
 - `open.sh` 在部分环境 chmod 位可能不保留 → 用 `bash open.sh`
@@ -277,4 +288,4 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 2. 新人格：复制 `persona-template` → 注册 `PERSONAS` + `PERSONA_DIRS` + 前端 `personas` 数组  
 3. 禁止把 xin-da-ya 三段式完整流程贴进其他人设  
 
-**正式项目包文件名**：`第N人格-v0.3.0.zip`（后续版本按实际版本号递增）
+**正式项目包文件名**：`第N人格-v0.3.1.zip`（后续版本按实际版本号递增）
