@@ -24,13 +24,13 @@
 - 页面点击立即 Toast「已切换至【…】」，并可在页内用 OpenAI 兼容 API 对话（Key 存在浏览器 localStorage）
 - 也可不启动服务：把 CHAT_BOOTSTRAP.md 贴进任意 AI 对话使用
 
-当前目标：以个人本地客户端为主，完成 Codex 桌面端接入；暂不部署公网或扩展其他 AI。GitHub 发布按本次首次初始化提交执行。
+当前目标：以个人本地客户端为主，完成 Codex 桌面端接入；暂不部署公网或扩展其他 AI。GitHub 已完成首次初始化发布。
 ```
 
 **转移文件**：`第N人格.zip`（与本 HANDOFF 同级的压缩包，内含完整目录）
 
 GitHub：https://github.com/Floatlive/The-Nth-Persona  
-仓库为 Public，默认分支为 `main`。本次发布将从本地项目创建首次初始化提交并推送；推送完成后再把提交哈希补写到本节。不要索要或让用户在聊天中粘贴 Personal Access Token。
+仓库为 Public，默认分支为 `main`。首次初始化提交 `56421dc` 已推送；本节后续只记录重要发布提交。不要索要或让用户在聊天中粘贴 Personal Access Token。
 
 ---
 
@@ -81,7 +81,7 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 - [x] 更新 `.gitignore`，排除本地人格状态、历史、密钥文件、日志、虚拟环境和缓存；ZIP 不包含运行时状态 JSON
 - [ ] 新建人格表单 / 更多人格
 - [ ] 人格输出自动评测（fixture）
-- [ ] GitHub 首次初始化提交（本次发布执行中）
+- [x] GitHub 首次初始化提交（`56421dc`，已推送至 `main`）
 - [ ] 流式输出（SSE）聊天
 
 ---
