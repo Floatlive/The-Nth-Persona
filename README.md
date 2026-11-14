@@ -12,6 +12,25 @@
 - 适用范围：个人本地使用、Codex 桌面端接入、OpenAI 兼容 API
 - 项目形态：**Skills + Codex Plugin + Local App**
 
+## 使用前提
+
+| 项目 | 要求 |
+| --- | --- |
+| 操作系统 | Windows、macOS 或 Linux |
+| Python | Python 3.10 或更高版本 |
+| 首次启动 | 需要联网安装 FastAPI、Uvicorn、HTTPX 和 Pydantic |
+| AI 对话 | 用户自行提供 OpenAI 兼容 API 的 Base URL、API Key 和模型名称 |
+| Codex 接入 | 运行本地服务，安装并信任项目 Hook |
+
+人格切换、状态查看和规则预览不需要 API Key；只有调用外部模型生成回复时才需要。
+
+## 从 GitHub 下载
+
+1. 打开 [GitHub Releases](https://github.com/Floatlive/The-Nth-Persona/releases)。
+2. 下载最新 Release 附件中的 `the-nth-persona-v*.zip`，不要下载来历不明的重新打包文件。
+3. 解压到普通可写目录，不要直接在 ZIP 压缩包内运行。
+4. 按下方系统说明启动。
+
 ## 你能得到什么
 
 - 5 个可切换人格：冷酷执行官、现实毒舌顾问、赛博老中医、极简主义者、信达雅。
@@ -44,6 +63,17 @@ chmod +x open.sh
 
 启动脚本会优先使用项目 `.venv`；依赖缺失时才安装。首次运行后，在页面的 API 设置中填写 OpenAI 兼容服务的 Base URL、API Key 和模型。
 
+默认使用 `127.0.0.1:8000`。如果端口被旧版第N人格或其他服务占用，启动脚本会停止并提示，不会误连；也可以指定其他端口：
+
+```powershell
+$env:NTH_PORT = "8010"
+.\open.ps1
+```
+
+```bash
+NTH_PORT=8010 ./open.sh
+```
+
 ## 接入 Codex 桌面端
 
 Windows 上，在项目目录运行：
@@ -53,6 +83,8 @@ Windows 上，在项目目录运行：
 ```
 
 首次使用时，在 Codex 桌面端审阅并信任 `UserPromptSubmit` Hook，然后保持第N人格服务运行。
+
+> Codex Hook 不是远程控制功能。它只在提交新提示时读取当前人格规则并追加到该轮上下文；不会修改模型本身，也不会删除当前聊天记录。
 
 实际流程：
 
