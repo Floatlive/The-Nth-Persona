@@ -2,43 +2,220 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#101114" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="在本地切换、验证并使用 AI 人格规则的控制台。" />
+  <meta name="theme-color" content="#090d0f" />
+  <!-- The next legacy inline icon is intentionally disabled. -->
+  <!--
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111719'/%3E%3Cpath d='M17 47V17h8l14 18V17h8v30h-8L25 29v18z' fill='%234fd8c6'/%3E%3C/svg%3E" />
+  -->
+  <link rel="icon" href="data&#58;image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMxMTE3MTkiLz48cGF0aCBkPSJNMTcgNDdWMTdoOGwxNCAxOFYxN2g4djMwaC04TDI1IDI5djE4eiIgZmlsbD0iIzRmZDhjNiIvPjwvc3ZnPg==" type="image/svg+xml" />
   <title>第N人格 · The Nth Persona</title>
   <style>
-    :root{color-scheme:dark;--bg:#101114;--panel:#17191e;--panel2:#1d2026;--line:#2b2e36;--text:#f2f3f5;--muted:#9298a4;--soft:#c4c8d0;--accent:#b9a4ff;--green:#7bd6ad;--amber:#e8bd76;--shadow:0 22px 70px #0007}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 65% -20%,#59478a33,transparent 45%),var(--bg);color:var(--text);font-family:Inter,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh}
-    button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr);max-width:1600px;margin:auto}
-    .sidebar{border-right:1px solid var(--line);padding:28px 18px 22px;display:flex;flex-direction:column;gap:28px;background:#111216aa;backdrop-filter:blur(16px)}
-    .brand{display:flex;align-items:center;gap:12px;padding:0 8px}.brand-mark{width:38px;height:38px;border-radius:13px;background:linear-gradient(145deg,#b9a4ff,#7560c8);display:grid;place-items:center;color:#17131f;font-size:20px;font-weight:900;box-shadow:0 8px 26px #9c83ff35}.brand-name{font-weight:750;letter-spacing:.02em}.brand-sub{font-size:10px;color:var(--muted);letter-spacing:.16em;margin-top:3px}
-    .nav-label{font-size:10px;color:#747a86;letter-spacing:.16em;padding:0 10px 10px}.nav-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:11px;color:#b8bdc7;font-size:13px;margin:2px 0}.nav-item.active{background:#292433;color:#e6ddff;border:1px solid #54476c66}.nav-icon{width:20px;text-align:center;font-size:15px}.side-bottom{margin-top:auto}.server-card{padding:14px;border:1px solid var(--line);border-radius:14px;background:#17191e}.server-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650}.dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px #e8bd7618}.dot.online{background:var(--green);box-shadow:0 0 0 4px #7bd6ad18}.server-desc{font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}.version{font-size:10px;color:#69707c;padding:14px 10px 0;letter-spacing:.08em}
-    main{min-width:0;padding:34px clamp(20px,4vw,62px) 54px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:42px}.crumb{font-size:12px;color:var(--muted)}.top-actions{display:flex;gap:9px;align-items:center}.status{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:99px;padding:8px 12px;color:#b9bec8;font-size:11px;background:#17191e}.status .dot{width:6px;height:6px}.btn{border:1px solid var(--line);background:#202229;color:#d8dbe2;border-radius:10px;padding:9px 13px;font-size:12px;transition:.2s}.btn:hover{border-color:#71618f;background:#282431}.btn.primary{background:#b9a4ff;color:#1b1724;border-color:#b9a4ff;font-weight:700}.btn.primary:hover{background:#c9baff}
-    .eyebrow{font-size:10px;color:var(--accent);letter-spacing:.22em;font-weight:700;margin-bottom:13px}.hero{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:30px}.hero h1{font-size:clamp(30px,4vw,48px);letter-spacing:-.055em;line-height:1.1;margin:0;font-weight:760}.hero p{margin:13px 0 0;color:var(--muted);font-size:13px;line-height:1.7}.current-chip{flex:0 0 auto;border:1px solid #6e5c92;background:#272234;border-radius:14px;padding:12px 15px;min-width:155px}.current-chip small{display:block;color:#a99abd;font-size:10px;margin-bottom:7px}.current-chip strong{font-size:14px}
-    .section-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}.section-head h2{font-size:14px;margin:0;font-weight:700}.section-head span{font-size:11px;color:var(--muted)}.persona-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:30px}.persona{position:relative;text-align:left;min-height:174px;padding:17px 15px;border-radius:15px;border:1px solid var(--line);background:linear-gradient(155deg,#1c1e24,#17191e);color:var(--text);transition:transform .2s,border-color .2s,background .2s;overflow:hidden}.persona:hover{transform:translateY(-3px);border-color:#696078}.persona.selected{border-color:#a990e6;background:linear-gradient(155deg,#30283f,#1c1b24);box-shadow:0 0 0 1px #a990e633,0 14px 36px #0003}.persona.selected:after{content:"当前生效";position:absolute;top:12px;right:11px;font-size:9px;color:#d5c7ff;background:#74609a55;border:1px solid #9a83c777;border-radius:99px;padding:4px 7px}.p-emoji{font-size:25px;margin-bottom:18px;display:block}.persona h3{font-size:13px;margin:0 0 7px;font-weight:700}.persona p{font-size:11px;line-height:1.55;color:var(--muted);margin:0}.p-id{font-family:ui-monospace,monospace;font-size:9px;color:#646b77;margin-top:13px;display:block;letter-spacing:.02em}
-    .workspace{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;align-items:stretch}.chat-panel,.info-panel{border:1px solid var(--line);border-radius:16px;background:#17191e;min-width:0}.chat-panel{display:flex;flex-direction:column;min-height:470px}.panel-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-title{font-size:13px;font-weight:700}.panel-sub{font-size:10px;color:var(--muted);margin-top:4px}.messages{padding:18px;display:flex;flex-direction:column;gap:13px;flex:1;min-height:270px;max-height:480px;overflow:auto}.welcome{margin:auto;text-align:center;max-width:340px;padding:24px 10px}.welcome-icon{width:46px;height:46px;border-radius:16px;background:#2c2639;display:grid;place-items:center;margin:0 auto 15px;font-size:22px}.welcome h3{font-size:15px;margin:0 0 8px}.welcome p{font-size:11px;color:var(--muted);line-height:1.7;margin:0}.msg{max-width:85%;padding:11px 13px;border-radius:13px;font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.msg.user{align-self:flex-end;background:#40365a;color:#f1eaff;border-bottom-right-radius:4px}.msg.bot{align-self:flex-start;background:#24272e;color:#e2e5eb;border-bottom-left-radius:4px}.msg.sys{align-self:center;max-width:100%;padding:5px 10px;background:#202229;border:1px solid #343741;border-radius:99px;color:#aeb4c0;font-size:10px}.composer{border-top:1px solid var(--line);padding:13px;display:flex;gap:9px}.composer input{min-width:0;flex:1;background:#101216;border:1px solid #30333c;border-radius:10px;padding:12px 13px;color:var(--text);font-size:12px;outline:none}.composer input:focus,.field input:focus{border-color:#8e79c0;box-shadow:0 0 0 3px #9b83dc18}.composer .btn{padding:0 18px}.info-panel{padding:17px;display:flex;flex-direction:column;gap:16px}.info-title{font-size:12px;font-weight:700}.active-persona{padding:15px;border-radius:13px;background:#24212e;border:1px solid #4a405e}.active-top{display:flex;align-items:center;gap:10px}.active-emoji{font-size:23px}.active-name{font-size:13px;font-weight:700}.active-id{font-size:9px;color:#a49ab6;margin-top:4px;font-family:ui-monospace,monospace}.active-note{font-size:11px;color:#b8b1c5;line-height:1.65;margin-top:12px}.info-line{height:1px;background:var(--line)}.mini-label{font-size:10px;color:var(--muted);margin-bottom:7px}.info-value{font-size:11px;color:#d6d9df;line-height:1.6}.setting-link{margin-top:auto;text-align:left;background:transparent;border:0;color:#bba8f0;font-size:11px;padding:0}.setting-link:hover{color:#d6caff}
-    details.settings{margin-top:16px;border:1px solid var(--line);border-radius:14px;background:#17191e;padding:0 16px}details.settings summary{list-style:none;cursor:pointer;padding:15px 0;font-size:12px;font-weight:650;color:#d9dce3;display:flex;justify-content:space-between}details.settings summary::-webkit-details-marker{display:none}details.settings summary:after{content:"＋";color:var(--muted)}details.settings[open] summary:after{content:"－"}.settings-body{border-top:1px solid var(--line);padding:15px 0 17px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-size:10px;color:var(--muted);margin-bottom:7px}.field input{width:100%;background:#101216;border:1px solid #30333c;border-radius:9px;padding:10px;color:var(--text);font-size:11px;outline:none}.settings-foot{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.hint{font-size:10px;color:#777e8b;line-height:1.6;max-width:570px}.toast{position:fixed;top:22px;left:50%;transform:translate(-50%,-18px);opacity:0;pointer-events:none;z-index:20;background:#262332;border:1px solid #7c69a5;color:#eee7ff;border-radius:12px;padding:12px 17px;box-shadow:var(--shadow);font-size:12px;transition:.22s}.toast.show{opacity:1;transform:translate(-50%,0)}.toast small{display:block;color:#b5a9ca;margin-top:3px;font-size:10px}.footer{margin-top:24px;text-align:center;color:#666d79;font-size:10px;letter-spacing:.08em}
-    @media(max-width:1100px){.persona-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.workspace{grid-template-columns:minmax(0,1fr) 240px}}
-    @media(max-width:760px){.app{display:block}.sidebar{display:none}main{padding:20px 15px 36px}.topbar{margin-bottom:28px}.hero{align-items:start;flex-direction:column}.current-chip{width:100%}.persona-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.persona{min-height:150px;padding:14px}.persona.selected:after{font-size:8px}.workspace{grid-template-columns:1fr}.info-panel{order:-1}.chat-panel{min-height:430px}.messages{max-height:420px}.settings-body{grid-template-columns:1fr}.settings-foot{align-items:start;flex-direction:column}.status{font-size:10px;padding:7px 9px}.top-actions .btn{padding:8px 10px}}
-    @media(max-width:390px){.persona-grid{grid-template-columns:1fr 1fr}.persona h3{font-size:12px}.persona p{font-size:10px}.topbar{align-items:flex-start}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
+    :root{
+      color-scheme:dark;
+      --bg:#090d0f;
+      --sidebar:#0c1113;
+      --panel:#111719;
+      --panel-strong:#151d20;
+      --surface:#192226;
+      --line:#29363b;
+      --line-strong:#3c5056;
+      --text:#f4f7f6;
+      --muted:#98a6aa;
+      --soft:#c7d0d2;
+      --accent:#4fd8c6;
+      --accent-hover:#70e3d3;
+      --accent-ink:#052621;
+      --green:#69d7a4;
+      --amber:#e2b96f;
+      --radius-lg:16px;
+      --radius-md:12px;
+      --radius-sm:8px;
+      --shadow:0 24px 70px rgba(0,0,0,.34);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI Variable","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.56}
+    button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .skip-link{position:fixed;top:12px;left:12px;z-index:30;min-height:44px;display:flex;align-items:center;padding:0 16px;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-ink);font-size:14px;font-weight:700;text-decoration:none;transform:translateY(-160%)}
+    .skip-link:focus{transform:translateY(0)}
+    .app{min-height:100vh;display:grid;grid-template-columns:252px minmax(0,1fr)}
+    .sidebar{position:sticky;top:0;height:100svh;border-right:1px solid var(--line);padding:28px 20px 22px;display:flex;flex-direction:column;gap:32px;background:var(--sidebar)}
+    .brand{display:flex;align-items:center;gap:12px;padding:0 6px}
+    .brand-mark{width:40px;height:40px;border-radius:10px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink);font-size:20px;font-weight:800}
+    .brand-name{font-size:16px;font-weight:700}
+    .brand-sub{font-size:11px;color:var(--muted);margin-top:3px}
+    .nav-label{font-size:12px;color:var(--muted);padding:0 10px 10px}
+    .nav-item{min-height:44px;display:flex;align-items:center;gap:11px;padding:10px 12px;border-left:2px solid transparent;border-radius:var(--radius-sm);color:#bac5c7;font-size:14px;margin:3px 0}
+    .nav-item.active{background:var(--panel-strong);color:var(--text);border-left-color:var(--accent)}
+    .nav-icon{width:20px;text-align:center;color:var(--muted);font-size:15px}
+    .nav-item.active .nav-icon{color:var(--accent)}
+    .nav-count{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+    .side-bottom{margin-top:auto}
+    .server-card{padding:16px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--panel)}
+    .server-head{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:650}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px rgba(226,185,111,.12)}
+    .dot.online{background:var(--green);box-shadow:0 0 0 4px rgba(105,215,164,.12)}
+    .server-desc{font-size:12px;color:var(--muted);line-height:1.65;margin-top:10px}
+    .version{font-size:11px;color:#718084;padding:16px 8px 0}
+    main{width:100%;max-width:1500px;min-width:0;padding:32px clamp(24px,4vw,64px) 48px;margin:0 auto}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:48px}
+    .crumb{font-size:13px;color:var(--muted)}
+    .top-actions{display:flex;gap:10px;align-items:center}
+    .status{min-height:44px;display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 14px;color:var(--soft);font-size:13px;background:var(--panel)}
+    .status .dot{width:7px;height:7px}
+    .btn{min-height:44px;border:1px solid var(--line-strong);background:var(--panel-strong);color:var(--text);border-radius:var(--radius-sm);padding:0 16px;font-size:14px;font-weight:600;transition:background-color .16s,border-color .16s,color .16s,transform .16s}
+    .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+    .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:48px;padding:0 0 36px;margin-bottom:28px;border-bottom:1px solid var(--line)}
+    .eyebrow{font-size:13px;color:var(--accent);font-weight:650;margin-bottom:14px}
+    .hero h1{font-size:clamp(34px,4vw,54px);letter-spacing:-.04em;line-height:1.08;margin:0;font-weight:650}
+    .hero p{margin:16px 0 0;color:var(--muted);font-size:15px;line-height:1.75}
+    .current-chip{flex:0 0 220px;border-left:2px solid var(--accent);padding:10px 0 10px 16px}
+    .current-chip small{display:block;color:var(--muted);font-size:12px;margin-bottom:8px}
+    .current-chip strong{font-size:16px;font-weight:650}
+    .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 16px}
+    .section-head h2{font-size:17px;margin:0;font-weight:650}
+    .section-head span{font-size:13px;color:var(--muted)}
+    .persona-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:32px}
+    .persona{position:relative;text-align:left;min-height:186px;padding:18px 16px;border-radius:var(--radius-md);border:1px solid var(--line);background:var(--panel);color:var(--text);transition:transform .16s,border-color .16s,background-color .16s;overflow:hidden}
+    .persona.selected{border-color:var(--accent);background:#13211f;box-shadow:inset 0 0 0 1px rgba(79,216,198,.16)}
+    .persona.selected:after{content:"当前生效";position:absolute;top:13px;right:12px;font-size:11px;font-weight:650;color:var(--accent);background:#0e2925;border:1px solid rgba(79,216,198,.38);border-radius:999px;padding:5px 8px}
+    .p-emoji{font-size:25px;margin-bottom:24px;display:block}
+    .persona h3{font-size:15px;margin:0 0 8px;font-weight:650}
+    .persona p{font-size:13px;line-height:1.6;color:var(--muted);margin:0}
+    .p-id{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace;font-size:11px;color:#708084;margin-top:16px;display:block}
+    .workspace{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:16px;align-items:stretch}
+    .chat-panel,.info-panel,.settings{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel);min-width:0}
+    .chat-panel{display:flex;flex-direction:column;min-height:540px}
+    .panel-head{min-height:72px;padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .panel-title{font-size:15px;font-weight:650}
+    .panel-sub{font-size:12px;color:var(--muted);margin-top:5px}
+    .messages{padding:20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:300px;max-height:520px;overflow:auto;scrollbar-color:var(--line-strong) transparent}
+    .welcome{margin:auto;text-align:center;max-width:360px;padding:28px 14px}
+    .welcome-icon{width:48px;height:48px;border-radius:var(--radius-md);border:1px solid var(--line);background:var(--panel-strong);color:var(--accent);display:grid;place-items:center;margin:0 auto 16px;font-size:21px}
+    .welcome h3{font-size:17px;margin:0 0 9px;font-weight:650}
+    .welcome p{font-size:14px;color:var(--muted);line-height:1.7;margin:0}
+    .msg{max-width:min(82%,680px);padding:12px 14px;border-radius:var(--radius-md);font-size:14px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+    .msg.user{align-self:flex-end;background:#183d38;color:#eafbf8;border-bottom-right-radius:4px}
+    .msg.bot{align-self:flex-start;background:var(--surface);color:#e3e9e9;border-bottom-left-radius:4px}
+    .msg.sys{align-self:center;max-width:100%;padding:7px 11px;background:transparent;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}
+    .composer{border-top:1px solid var(--line);padding:14px;display:flex;gap:10px}
+    .composer input,.field input{min-width:0;background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none}
+    .composer input{height:48px;flex:1;padding:0 14px}
+    .composer .btn{height:48px;padding:0 22px}
+    .composer input:focus,.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,216,198,.12)}
+    .info-panel{padding:20px;display:flex;flex-direction:column;gap:20px}
+    .info-title{font-size:15px;font-weight:650}
+    .active-persona{padding:4px 0 20px;border-bottom:1px solid var(--line)}
+    .active-top{display:flex;align-items:center;gap:12px}
+    .active-emoji{width:42px;height:42px;border-radius:var(--radius-sm);background:var(--panel-strong);display:grid;place-items:center;font-size:22px}
+    .active-name{font-size:16px;font-weight:650}
+    .active-id{font-size:11px;color:var(--muted);margin-top:4px;font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
+    .active-note{font-size:13px;color:var(--soft);line-height:1.7;margin-top:14px}
+    .info-line{height:1px;background:var(--line)}
+    .mini-label{font-size:12px;color:var(--muted);margin-bottom:8px}
+    .info-value{font-size:13px;color:var(--soft);line-height:1.7}
+    .setting-link{min-height:44px;margin-top:auto;text-align:left;background:transparent;border:0;color:var(--accent);font-size:13px;font-weight:600;padding:0}
+    details.settings{margin-top:16px;padding:0 18px}
+    details.settings summary{min-height:56px;list-style:none;cursor:pointer;padding:0;font-size:14px;font-weight:650;color:var(--text);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    details.settings summary::-webkit-details-marker{display:none}
+    details.settings summary:after{content:"＋";color:var(--muted);font-size:18px;font-weight:400}
+    details.settings[open] summary:after{content:"－"}
+    .summary-meta{color:var(--muted);font-size:12px;font-weight:400;margin-left:8px}
+    .settings-body{border-top:1px solid var(--line);padding:18px 0 20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .field label{display:block;font-size:12px;color:var(--soft);margin-bottom:8px}
+    .field input{width:100%;height:44px;padding:0 12px}
+    .settings-foot{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:20px;padding-top:2px}
+    .hint{font-size:12px;color:var(--muted);line-height:1.65;max-width:760px}
+    .toast{position:fixed;top:20px;right:20px;transform:translateY(-12px);opacity:0;pointer-events:none;z-index:20;min-width:260px;background:var(--panel-strong);border:1px solid var(--line-strong);color:var(--text);border-radius:var(--radius-md);padding:13px 16px;box-shadow:var(--shadow);font-size:14px;transition:opacity .18s,transform .18s}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .toast small{display:block;color:var(--muted);margin-top:4px;font-size:12px}
+    .footer{margin-top:28px;text-align:center;color:#718084;font-size:11px}
+    @media(hover:hover){
+      .btn:hover{border-color:#587078;background:#1a2529}
+      .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+      .persona:hover{transform:translateY(-2px);border-color:var(--line-strong);background:var(--panel-strong)}
+      .persona.selected:hover{border-color:var(--accent);background:#162725}
+      .setting-link:hover{color:var(--accent-hover)}
+    }
+    @media(max-width:1180px){
+      .persona-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .workspace{grid-template-columns:minmax(0,1fr) 260px}
+    }
+    @media(max-width:860px){
+      .app{display:block}
+      .sidebar{display:none}
+      main{padding:24px 22px 40px}
+      .topbar{margin-bottom:38px}
+      .workspace{grid-template-columns:1fr}
+      .info-panel{order:-1}
+      .chat-panel{min-height:500px}
+      .messages{max-height:480px}
+    }
+    @media(max-width:640px){
+      main{padding:18px 16px 32px}
+      .topbar{align-items:stretch;flex-direction:column;margin-bottom:34px}
+      .top-actions{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto}
+      .status{min-width:0}
+      .hero{align-items:flex-start;flex-direction:column;gap:24px;padding-bottom:30px}
+      .hero h1{font-size:36px}
+      .hero p{font-size:14px}
+      .current-chip{flex:auto;width:100%;padding:10px 0 10px 14px}
+      .section-head{align-items:flex-start;flex-direction:column;gap:7px}
+      .persona-grid{grid-template-columns:1fr;gap:10px}
+      .persona{min-height:138px;padding:17px 110px 17px 72px;display:grid;grid-template-columns:1fr;align-content:center}
+      .persona.selected:after{top:14px;right:13px}
+      .p-emoji{position:absolute;left:18px;top:18px;margin:0}
+      .persona h3{font-size:15px}
+      .persona p{font-size:13px}
+      .p-id{margin-top:10px}
+      .panel-head{padding:13px 14px}
+      .messages{padding:16px}
+      .msg{max-width:90%}
+      .composer{display:grid;grid-template-columns:minmax(0,1fr) auto;padding:12px}
+      .composer .btn{padding:0 16px}
+      .info-panel{padding:18px}
+      .settings-body{grid-template-columns:1fr}
+      .settings-foot{align-items:stretch;flex-direction:column}
+      .settings-foot .btn{width:100%}
+      .toast{top:12px;left:12px;right:12px;min-width:0}
+    }
+    @media(max-width:360px){
+      .top-actions{grid-template-columns:1fr}
+      .hero h1{font-size:32px}
+      .persona{padding-right:86px}
+      .composer{grid-template-columns:1fr}
+      .composer .btn{width:100%}
+    }
+    @media(prefers-reduced-motion:reduce){
+      html{scroll-behavior:auto}
+      *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+    }
   </style>
 </head>
 <body>
-  <div class="toast" id="toast"><span id="toastMain"></span><small id="toastSub"></small></div>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastMain"></span><small id="toastSub"></small></div>
   <div class="app">
-    <aside class="sidebar">
+    <aside class="sidebar" aria-label="主导航">
       <div class="brand"><div class="brand-mark">N</div><div><div class="brand-name">第N人格</div><div class="brand-sub">THE NTH PERSONA</div></div></div>
-      <div><div class="nav-label">工作空间</div><div class="nav-item active"><span class="nav-icon">◈</span>人格控制台</div><div class="nav-item"><span class="nav-icon">▤</span>人格库 <span style="margin-left:auto;color:#858b97;font-size:10px">05</span></div><div class="nav-item"><span class="nav-icon">⌘</span>对话工作区</div></div>
+      <nav><div class="nav-label">工作空间</div><div class="nav-item active"><span class="nav-icon">◈</span>人格控制台</div><div class="nav-item"><span class="nav-icon">▤</span>人格库 <span class="nav-count">05</span></div><div class="nav-item"><span class="nav-icon">⌘</span>对话工作区</div></nav>
       <div class="side-bottom"><div class="server-card"><div class="server-head"><span class="dot" id="sideDot"></span><span id="sideServer">正在检测服务</span></div><div class="server-desc">本地人格状态由 FastAPI 管理。已启用 Codex Hook 时，后续提示会读取当前人格。</div></div><div class="version">LOCAL WORKSPACE · v0.3.1</div></div>
     </aside>
-    <main>
-      <div class="topbar"><div class="crumb">工作空间&nbsp; / &nbsp;人格控制台</div><div class="top-actions"><span class="status"><span class="dot" id="apiDot"></span><span id="apiStatus">检测连接中</span></span><button class="btn" onclick="document.getElementById('settings').scrollIntoView({behavior:'smooth'});document.getElementById('settings').open=true">⚙ API 设置</button></div></div>
-      <section class="hero"><div><div class="eyebrow">PERSONA MANAGEMENT SYSTEM</div><h1>让每一次对话<br>都有明确的角色。</h1><p>选择一个人格，立即切换当前对话的思考方式与表达边界。<br>同一时刻，仅有一个人格生效。</p></div><div class="current-chip"><small>当前生效人格</small><strong id="currentName">冷酷执行官</strong></div></section>
-      <section><div class="section-head"><h2>人格库</h2><span>点击卡片即可切换 · 5 个已配置人格</span></div><div class="persona-grid" id="personaGrid"></div></section>
-      <section class="workspace">
-        <div class="chat-panel"><div class="panel-head"><div><div class="panel-title">对话工作区</div><div class="panel-sub">当前人格：<span id="chatPersona">冷酷执行官</span></div></div><button class="btn" id="clearBtn" onclick="clearChat()">清空对话</button></div><div class="messages" id="messages"><div class="welcome" id="welcome"><div class="welcome-icon">✳</div><h3>准备好开始对话</h3><p>当前人格已就位。输入你的问题，AI 将按照已启用的人格规则回应。</p></div></div><div class="composer"><input id="input" placeholder="输入消息，Enter 发送…" autocomplete="off" /><button class="btn primary" id="sendBtn" onclick="send()">发送 ↗</button></div></div>
-        <aside class="info-panel"><div class="info-title">人格状态</div><div class="active-persona"><div class="active-top"><span class="active-emoji" id="activeEmoji">❄️</span><div><div class="active-name" id="activeName">冷酷执行官</div><div class="active-id" id="activeId">cold-executor</div></div></div><div class="active-note" id="activeDesc">只关注结果、行动与截止时间。拒绝空泛安慰，推动事情落地。</div></div><div><div class="mini-label">生效规则</div><div class="info-value">完整替换上一人格规则<br>不会叠加其他人格的语气与结构</div></div><div class="info-line"></div><div><div class="mini-label">本地状态</div><div class="info-value" id="stateText">等待后端同步</div></div><button class="setting-link" onclick="document.getElementById('settings').open=true;document.getElementById('settings').scrollIntoView({behavior:'smooth'})">配置模型 API →</button></aside>
+    <main id="main">
+      <div class="topbar"><div class="crumb">工作空间&nbsp; / &nbsp;人格控制台</div><div class="top-actions"><span class="status"><span class="dot" id="apiDot"></span><span id="apiStatus">检测连接中</span></span><button type="button" class="btn" onclick="document.getElementById('settings').scrollIntoView({behavior:'smooth'});document.getElementById('settings').open=true">⚙ API 设置</button></div></div>
+      <section class="hero" aria-labelledby="page-title"><div><div class="eyebrow">PERSONA MANAGEMENT SYSTEM</div><h1 id="page-title">让每一次对话<br>都有明确的角色。</h1><p>选择一个人格，立即切换当前对话的思考方式与表达边界。<br>同一时刻，仅有一个人格生效。</p></div><div class="current-chip" aria-live="polite"><small>当前生效人格</small><strong id="currentName">冷酷执行官</strong></div></section>
+      <section aria-labelledby="persona-heading"><div class="section-head"><h2 id="persona-heading">人格库</h2><span>点击卡片即可切换 · 5 个已配置人格</span></div><div class="persona-grid" id="personaGrid"></div></section>
+      <section class="workspace" aria-label="对话与人格状态">
+        <div class="chat-panel"><div class="panel-head"><div><div class="panel-title">对话工作区</div><div class="panel-sub">当前人格：<span id="chatPersona">冷酷执行官</span></div></div><button type="button" class="btn" id="clearBtn" onclick="clearChat()">清空对话</button></div><div class="messages" id="messages" aria-live="polite"><div class="welcome" id="welcome"><div class="welcome-icon">✳</div><h3>准备好开始对话</h3><p>当前人格已就位。输入你的问题，AI 将按照已启用的人格规则回应。</p></div></div><div class="composer"><label class="sr-only" for="input">输入消息</label><input id="input" placeholder="输入消息，Enter 发送…" autocomplete="off" /><button type="button" class="btn primary" id="sendBtn" onclick="send()">发送 ↗</button></div></div>
+        <aside class="info-panel" aria-labelledby="persona-status-title"><div class="info-title" id="persona-status-title">人格状态</div><div class="active-persona"><div class="active-top"><span class="active-emoji" id="activeEmoji">❄️</span><div><div class="active-name" id="activeName">冷酷执行官</div><div class="active-id" id="activeId">cold-executor</div></div></div><div class="active-note" id="activeDesc">只关注结果、行动与截止时间。拒绝空泛安慰，推动事情落地。</div></div><div><div class="mini-label">生效规则</div><div class="info-value">完整替换上一人格规则<br>不会叠加其他人格的语气与结构</div></div><div class="info-line"></div><div><div class="mini-label">本地状态</div><div class="info-value" id="stateText">等待后端同步</div></div><button type="button" class="setting-link" onclick="document.getElementById('settings').open=true;document.getElementById('settings').scrollIntoView({behavior:'smooth'})">配置模型 API →</button></aside>
       </section>
-      <details class="settings" id="settings"><summary>模型 API 配置 <span style="color:#858b97;font-size:10px;font-weight:400;margin-left:8px">OpenAI 兼容接口</span></summary><div class="settings-body"><div class="field"><label for="apiBase">API Base</label><input id="apiBase" placeholder="https://api.openai.com/v1" /></div><div class="field"><label for="apiKey">API Key</label><input id="apiKey" type="password" placeholder="输入你的 API Key" /></div><div class="field"><label for="apiModel">模型名称</label><input id="apiModel" placeholder="gpt-4o-mini" /></div><div class="settings-foot"><div class="hint">API Key 保存在当前浏览器 localStorage，不会写入项目文件；共享设备请勿保存 Key。远程 API 请使用 HTTPS，HTTP 仅建议用于本机或可信网络内的本地接口。使用对话功能需要启动本地后端。</div><button class="btn primary" onclick="saveSettings();showToast('设置已保存','配置仅保存在当前浏览器')">保存设置</button></div></div></details>
+      <details class="settings" id="settings"><summary>模型 API 配置 <span class="summary-meta">OpenAI 兼容接口</span></summary><form class="settings-body" onsubmit="return false"><div class="field"><label for="apiBase">API Base</label><input id="apiBase" placeholder="https://api.openai.com/v1" /></div><div class="field"><label for="apiKey">API Key</label><input id="apiKey" type="password" autocomplete="off" placeholder="输入你的 API Key" /></div><div class="field"><label for="apiModel">模型名称</label><input id="apiModel" placeholder="gpt-4o-mini" /></div><div class="settings-foot"><div class="hint">API Key 保存在当前浏览器 localStorage，不会写入项目文件；共享设备请勿保存 Key。远程 API 请使用 HTTPS，HTTP 仅建议用于本机或可信网络内的本地接口。使用对话功能需要启动本地后端。</div><button type="button" class="btn primary" onclick="saveSettings();showToast('设置已保存','配置仅保存在当前浏览器')">保存设置</button></div></form></details>
       <div class="footer">THE NTH PERSONA · PRIVATE LOCAL WORKSPACE · 2026</div>
     </main>
   </div>
