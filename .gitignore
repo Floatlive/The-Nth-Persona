@@ -2,6 +2,8 @@ __pycache__/
 .pytest_cache/
 .pytest-tmp-*/
 .pytest-publish-check/
+.pytest-*-check/
+docs/superpowers/plans/
 .playwright-cli/
 *.py[cod]
 *.egg-info/

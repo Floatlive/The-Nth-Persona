@@ -1,168 +1,147 @@
 # 第N人格 · The Nth Persona
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](./README.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Floatlive/The-Nth-Persona?display_name=tag)](https://github.com/Floatlive/The-Nth-Persona/releases)
+[![Stars](https://img.shields.io/github/stars/Floatlive/The-Nth-Persona)](https://github.com/Floatlive/The-Nth-Persona)
 
-可切换的高优先级 AI 人格系统（Skill 包 + 前端页面 + API）。
+可切换、可验证、可回滚的本地 AI 人格层。
 
-Click to switch personas. One active persona at a time. Built for Claude Code / Cursor-style agent skills.
+第N人格把人格规则放进可读的 `SKILL.md`，用本地页面切换当前人格，并通过 Codex `UserPromptSubmit` Hook 把当前规则追加到后续提示中。它不修改模型本身，也不删除聊天记录。
 
----
+- 当前版本：`v0.3.0`
+- 适用范围：个人本地使用、Codex 桌面端接入、OpenAI 兼容 API
+- 项目形态：**Skills + Codex Plugin + Local App**
 
-## Features
+## 你能得到什么
 
-- **5 built-in personas** with high-priority enforcement rules
-- **Click-to-switch UI** + FastAPI backend (same-origin; no wildcard CORS)
-- **`read-current` skill** so the AI always loads the latest persona
-- **Persona template** for adding the N+1th persona
-- **Handoff doc** for transferring the project to another AI
-- Atomic local state writes, monotonic persona versions, corruption recovery, and request concurrency checks
-- Local-only Host header protection and project-level virtual-environment startup
-- Windows Codex plugin hook reads the selected persona for each new prompt
+- 5 个可切换人格：冷酷执行官、现实毒舌顾问、赛博老中医、极简主义者、信达雅。
+- 页面点击切换，立即显示「已切换至【…】」。
+- 当前人格只有一个，切换是覆盖，不是叠加。
+- Codex 每次提交提示时重新读取当前人格，旧聊天记录继续保留。
+- 人格状态原子写入，版本号递增；切换期间的过期回复会被拒绝。
+- 本地 API、OpenAI 兼容聊天接口、回归测试和 Windows 安装脚本。
 
-## Personas
+## 3 分钟启动
 
-| Persona | ID | Style |
-|---------|-----|--------|
-| 冷酷执行官 | `cold-executor` | Results & deadlines only |
-| 现实毒舌顾问 | `sharp-advisor` | Sharp, rational call-outs |
-| 赛博老中医 | `cyber-tcm` | TCM metaphors + actionable “prescriptions” |
-| 极简主义者 | `minimalist` | Cut everything non-essential |
-| 信达雅 | `xin-da-ya` | Faithfulness → Clarity → Elegance |
+### Windows
 
-> Full 信→达→雅 process belongs **only** to `xin-da-ya`. Other personas share a light quality baseline only.
+```powershell
+.\open.ps1
+```
 
-## UI 本地使用
+也可以双击 `open.bat`。浏览器打开：
 
-推荐下载完整 ZIP 并解压，在项目目录运行：
+```text
+http://127.0.0.1:8000
+```
 
-Windows：双击 `open.bat`，或在 PowerShell 中运行 `.\open.ps1`。
+### macOS / Linux
 
-macOS / Linux：运行 `bash open.sh`。
-
-浏览器打开 `http://127.0.0.1:8000`。首次运行会自动安装后端依赖。启动后可持久化人格切换，并在页面内配置 OpenAI 兼容 API 进行对话。
-
-也可以直接双击 `index.html` 预览 UI；离线预览不具备后端切换持久化和 AI 对话能力。项目按个人本地使用设计，不需要公网服务器。API Key 保存在当前浏览器 localStorage；共享设备请勿保存 Key，远程 API 地址请使用 HTTPS。
-
-## Codex 桌面端
-
-Windows 上运行 `.\install-codex.ps1` 注册并安装本地 Codex 插件。首次使用时，在 Codex 桌面端审阅并信任 `UserPromptSubmit` Hook；然后启动第N人格应用。之后每次提交提示，Hook 会从本机 `/codex/context` 读取当前人格规则并追加到 Codex 的模型上下文。
-
-切换只影响后续提交，不清空或重开当前聊天。历史助手发言仍留在上下文里，因此插件会明确要求 Codex 不沿用旧人格，但不能保证旧内容绝对不影响模型。若第N人格服务未启动，该轮会提示未注入人格。
-
-## Quick Start
-
-Windows：双击 `open.bat`。
-
-macOS / Linux：
 ```bash
 chmod +x open.sh
 ./open.sh
 ```
 
-Or:
+启动脚本会优先使用项目 `.venv`；依赖缺失时才安装。首次运行后，在页面的 API 设置中填写 OpenAI 兼容服务的 Base URL、API Key 和模型。
 
-```bash
-cd server
-pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
+## 接入 Codex 桌面端
+
+Windows 上，在项目目录运行：
+
+```powershell
+.\install-codex.ps1
 ```
 
-Open **http://127.0.0.1:8000**
+首次使用时，在 Codex 桌面端审阅并信任 `UserPromptSubmit` Hook，然后保持第N人格服务运行。
 
-- Page: `/`
-- API docs: `/docs`
-- Health: `/health`
+实际流程：
 
-## Run Tests
+```text
+页面切换人格
+    ↓
+本地服务保存当前人格和版本
+    ↓
+Codex 提交新提示
+    ↓
+Hook 读取 /codex/context
+    ↓
+当前人格规则追加到本轮模型上下文
+```
 
-启动一次后，项目 `.venv` 已创建。安装测试工具并运行回归测试：
+切换不会新建聊天，也不会清空历史。插件只能影响后续提交的上下文，不能修改模型本身，也不能保证旧聊天内容完全不影响模型。
 
-Windows：
+## 这到底是什么
+
+| 部分 | 类型 | 作用 |
+| --- | --- | --- |
+| `cold-executor/SKILL.md` 等人格目录 | Agent Skill | 描述每个人格的行为边界和输出规则 |
+| `skills/read-current/`、`switcher/` | Agent Skill | 让支持 Skill 的 AI 在对话内读取和切换人格 |
+| `codex-plugin/` | Codex Plugin + Hook | 把本地当前人格注入 Codex 后续提示 |
+| `server/` + `index.html` | 本地应用 | 提供切换 UI、状态存储和 OpenAI 兼容 API |
+
+因此，第N人格不是一个模型，也不是只能依赖 API 的聊天机器人；它是一个可被不同 AI 工作流读取的规则层。
+
+## 人格列表
+
+| 人格 | ID | 适合 |
+| --- | --- | --- |
+| 冷酷执行官 | `cold-executor` | 结果、行动、截止时间 |
+| 现实毒舌顾问 | `sharp-advisor` | 拆穿自我欺骗，直接指出问题 |
+| 赛博老中医 | `cyber-tcm` | 用状态隐喻拆解问题并给出行动处方 |
+| 极简主义者 | `minimalist` | 一次只推进最重要的一件事 |
+| 信达雅 | `xin-da-ya` | 先信、再达、后雅；完整流程只属于此人格 |
+
+## API
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/health` | 服务健康状态 |
+| `GET` | `/current` | 当前人格和版本 |
+| `POST` | `/switch` | 切换人格，例如 `{"persona":"minimalist"}` |
+| `GET` | `/codex/context` | 返回 Codex Hook 使用的当前人格上下文 |
+| `GET` | `/personas` | 列出全部人格 |
+| `GET` | `/history` | 查看切换历史 |
+| `POST` | `/reset` | 重置为默认人格 |
+| `POST` | `/chat` | 使用当前人格调用 OpenAI 兼容接口 |
+
+API 文档启动后位于 `http://127.0.0.1:8000/docs`。
+
+## 项目结构
+
+```text
+.
+├── cold-executor/       # 人格 Skill
+├── sharp-advisor/
+├── cyber-tcm/
+├── minimalist/
+├── xin-da-ya/
+├── skills/read-current/ # 读取当前人格
+├── switcher/            # 对话内切换
+├── codex-plugin/        # Codex UserPromptSubmit Hook
+├── server/              # FastAPI 服务
+├── index.html           # 本地切换与聊天页面
+├── tests/               # 回归测试
+├── open.ps1 / open.bat / open.sh
+└── install-codex.ps1
+```
+
+## 开发与验证
+
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-macOS / Linux：
-```bash
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pytest
-```
+完整开发约定见 [`CONTRIBUTING.md`](CONTRIBUTING.md)，版本变化见 [`CHANGELOG.md`](CHANGELOG.md)。
 
-## Install as Agent Skill
+## 安全与限制
 
-Copy this repository (or the skill folders) into your agent skills directory:
+- 项目默认只监听 `127.0.0.1`，不是公网服务。
+- API Key 只保存在浏览器 `localStorage` 或本机环境变量；共享设备不要保存。
+- 当前是单用户本地版，没有鉴权和多用户隔离。
+- Skill 和 Hook 都属于提示层约束，不是模型运行时的硬权限。
+- Hook 不读取 API Key，也不读取聊天历史；服务未启动时，本轮不会注入人格。
 
-- Claude Code → `.claude/skills/`
-- Cursor → corresponding skills / agents path
-
-Then say: `打开第N人格` or `切换到冷酷执行官`.
-
-## API
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | UI |
-| GET | `/health` | Health check |
-| GET | `/current` | Active persona |
-| POST | `/switch` | Switch `{"persona":"cold-executor"}` |
-| GET | `/history` | Switch history |
-| GET | `/personas` | List personas |
-| POST | `/reset` | Reset to default |
-| POST | `/chat` | Chat with the active persona through an OpenAI-compatible API |
-
-## Project Layout
-
-```
-.
-├── HANDOFF.md                 # Transfer notes for another AI
-├── requirements-dev.txt       # Test dependencies
-├── open.sh                    # macOS / Linux 一键启动
-├── open.ps1                   # Windows PowerShell 一键启动
-├── open.bat                   # Windows 双击启动
-├── index.html                 # Switch UI
-├── server/                    # FastAPI (UI + API)
-├── cold-executor/             # Persona skills
-├── sharp-advisor/
-├── cyber-tcm/
-├── minimalist/
-├── xin-da-ya/
-├── skills/read-current/       # Force-read active persona
-├── switcher/
-├── persona-template/          # Template for new personas
-└── tests/                     # Backend regression tests
-```
-
-## Design Rules
-
-1. Only one persona active at a time (full replace, not stack)
-2. `server/data/current.json` is the single source of truth (with `version`)
-3. AI must read latest state via `read-current` before replying
-4. Extensible: copy `persona-template` to add persona N+1
-
-## License
+## 许可证
 
 MIT © Floatlive
-
-
-## v0.3.0 · Codex 接入
-
-- 增加 Codex `UserPromptSubmit` 插件 Hook，每轮从 `/codex/context` 读取最新人格规则。
-- Hook 不读取 API Key 或聊天历史；服务不可用时提示本轮未注入。
-- 当前人格仅影响后续提交，不会清除旧聊天上下文。
-
-## v0.2.9 修复
-
-- 增加 `TrustedHostMiddleware`，仅接受 `127.0.0.1` 与 `localhost`，拒绝伪造 Host 头。
-- Windows / macOS / Linux 启动入口统一优先使用项目 `.venv`；只有服务未运行且依赖缺失时才安装依赖。
-- 增加后端回归测试入口，覆盖本地 Host 白名单。
-
-## v0.2.8 修复
-
-- 重置人格时版本号继续递增，避免旧版本号被重新使用。
-- 修复无效版本字段和非 UTF-8 状态文件的恢复处理。
-- 模型返回前再次核对人格版本，切换期间产生的旧人格回复将以 409 拒绝。
-- HTTP 服务请求失败时不再误判为离线预览；仅直接打开 HTML（`file://`）时允许离线预览切换。
-- 发送期间禁用清空对话，并在清空函数中增加保护。
-- 限制聊天历史条数及相关输入字段长度。
