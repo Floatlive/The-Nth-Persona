@@ -3,14 +3,14 @@
 > **每次更新后必须刷新本文件。**  
 > 转移时：把下面的 **第N人格.zip** 交给另一个 AI，并复制「交接提示词」。
 
-**项目版本：v0.4.1** · **交接文档更新：2026-11-15**
+**项目版本：v0.4.2** · **交接文档更新：2026-11-15**
 
 ---
 
 ## 交接提示词（复制给下一个 AI）
 
 ```
-这是「第N人格 / The Nth Persona」完整项目包（v0.4.1）。
+这是「第N人格 / The Nth Persona」完整项目包（v0.4.2）。
 请先完整阅读 HANDOFF.md，再读 README.md、server/main.py、index.html、各人格 SKILL.md。开始修改前先核对实际文件，不要仅凭本交接文档推断代码现状。
 
 硬性规则：
@@ -24,7 +24,7 @@
 - 页面点击立即 Toast「已切换至【…】」，并可在页内用 OpenAI 兼容 API 对话（Key 存在浏览器 localStorage）
 - 也可不启动服务：把 CHAT_BOOTSTRAP.md 贴进任意 AI 对话使用
 
-当前目标：以“本地内置脚本服务 + UI 调用”为主，统一支持 Codex、Claude、Gemini、DeepSeek 和豆包；不部署公网。GitHub 已完成 `v0.3.0` 首次版本发布，`v0.4.1` 代码尚未创建 Tag 或 Release。
+当前目标：以“本地内置脚本服务 + UI 调用”为主，统一支持 Codex、Claude、Gemini、DeepSeek 和豆包；不部署公网。GitHub 已完成 `v0.3.0` 首次版本发布，`v0.4.2` 代码尚未创建 Tag 或 Release。
 ```
 
 **转移文件**：`第N人格.zip`（与本 HANDOFF 同级的压缩包，内含完整目录）
@@ -76,6 +76,7 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 - [x] v0.3.1：分别增强五个人格的独立决策协议和安全边界；新增人格契约回归测试
 - [x] v0.4.0：动态人格创建；四档启用作用域；Codex / Claude / Gemini / DeepSeek / 豆包统一适配；服务端旧人格历史隔离
 - [x] v0.4.1：当前对话服务端原子绑定；Hook 本地令牌认证；等待期立即停用旧作用域；标签页隔离；作用域状态文案；响应式修复；自定义 API Base 凭据隔离
+- [x] v0.4.2：移除 Codex 不可靠的单聊绑定；Hook 恢复为只读状态；旧绑定安全关闭；Codex UI 仅保留当前 AI / 所有接入
 
 ### 未做 / 可继续
 - [ ] 多用户（`user_id` 仍 default；无鉴权）
@@ -260,7 +261,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 
 - `index.html` 为响应式深色桌面工作台，窄屏自动改为单列布局。
 - 页面包含人格库、当前人格状态、对话工作区、服务状态和 OpenAI 兼容 API 设置。
-- 网页“当前对话”按标签页隔离；Codex 点击“当前对话”后由服务端立即停用旧作用域，并等待认证 Hook 原子绑定真实聊天 ID。
+- 网页“当前页面”按标签页隔离；Codex 因没有可靠的当前选中聊天接口，不提供单聊作用域，只支持当前 AI / 所有接入。
 - 启用状态直接显示实际影响范围；人格规则说明收纳在 `ⓘ` 提示中。
 - API Key 仍只存浏览器 `localStorage`；共享设备不要保存，远程 API 使用 HTTPS。
 - 推荐使用 `bash open.sh` 启动后端后访问 `http://127.0.0.1:8000`，以获得人格切换持久化和页内 AI 对话。

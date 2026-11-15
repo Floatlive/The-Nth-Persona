@@ -84,6 +84,8 @@ def _validate_activation_target(
 ) -> None:
     if enabled and scope == "off":
         raise ValueError("启用人格时 scope 不能为 off")
+    if enabled and scope == "conversation" and provider == "codex":
+        raise ValueError("Codex 暂不支持可靠锁定单个聊天")
     if enabled and scope == "provider" and not provider:
         raise ValueError("当前 AI 作用域需要 provider")
     if enabled and scope == "conversation" and (
@@ -162,8 +164,6 @@ def _default_state(user_id: str = "default") -> dict:
         "scope": "global",
         "provider": None,
         "conversation_id": None,
-        "binding_pending": False,
-        "binding_started_at": None,
     }
 
 
@@ -242,25 +242,23 @@ def read_current(user_id: str = "default") -> dict:
         ):
             data["conversation_id"] = None
             changed = True
-        if not isinstance(data.get("binding_pending"), bool):
-            data["binding_pending"] = False
+        legacy_codex_conversation = (
+            data.get("scope") == "conversation"
+            and data.get("provider") == "codex"
+        )
+        if data.get("binding_pending") or legacy_codex_conversation:
+            data["enabled"] = False
+            data["scope"] = "off"
+            data["provider"] = None
+            data["conversation_id"] = None
+            data["switched_at"] = datetime.now(timezone.utc).isoformat()
+            data["version"] += 1
             changed = True
-        if data["binding_pending"]:
-            if (
-                data.get("enabled")
-                or data.get("scope") != "off"
-                or data.get("provider") is not None
-                or data.get("conversation_id") is not None
-            ):
-                data["enabled"] = False
-                data["scope"] = "off"
-                data["provider"] = None
-                data["conversation_id"] = None
-                changed = True
-        if "binding_started_at" not in data or not isinstance(
-            data.get("binding_started_at"), (str, type(None))
-        ):
-            data["binding_started_at"] = None
+        if "binding_pending" in data:
+            data.pop("binding_pending", None)
+            changed = True
+        if "binding_started_at" in data:
+            data.pop("binding_started_at", None)
             changed = True
         data.setdefault("user_id", user_id)
         data["name"] = PERSONA_STORE.get(data["persona"]).name
@@ -283,7 +281,6 @@ def append_history(entry: dict) -> None:
         "scope": entry.get("scope", "global"),
         "provider": entry.get("provider"),
         "conversation_id": entry.get("conversation_id"),
-        "binding_pending": entry.get("binding_pending", False),
     })
     _atomic_write_json(HISTORY_FILE, history[-50:])
 
@@ -500,53 +497,9 @@ def codex_hook_context(
         raise HTTPException(401, "Codex Hook 认证失败")
     with STATE_LOCK:
         state = read_current()
-        if state.get("binding_pending") and req.conversation_id:
-            data = {
-                **state,
-                "enabled": True,
-                "scope": "conversation",
-                "provider": "codex",
-                "conversation_id": req.conversation_id,
-                "binding_pending": False,
-                "binding_started_at": None,
-                "switched_at": datetime.now(timezone.utc).isoformat(),
-                "version": state["version"] + 1,
-                "previous": state["persona"],
-            }
-            _atomic_write_json(DATA_FILE, data)
-            try:
-                append_history(data)
-            except OSError:
-                pass
-            state = data
         result = _context_result_for_state(state, "codex", req.conversation_id)
         _record_codex_read(result, req.conversation_id)
     return result
-
-
-@app.post("/codex/bind")
-def begin_codex_binding():
-    with STATE_LOCK:
-        previous = read_current()
-        data = {
-            **previous,
-            "enabled": False,
-            "scope": "off",
-            "provider": None,
-            "conversation_id": None,
-            "binding_pending": True,
-            "binding_started_at": datetime.now(timezone.utc).isoformat(),
-            "switched_at": datetime.now(timezone.utc).isoformat(),
-            "version": previous["version"] + 1,
-            "previous": previous["persona"],
-        }
-        _atomic_write_json(DATA_FILE, data)
-        try:
-            append_history(data)
-            history_saved = True
-        except OSError:
-            history_saved = False
-    return {"ok": True, "history_saved": history_saved, "current": data}
 
 
 @app.get("/integration/status")
@@ -596,16 +549,6 @@ def switch(req: SwitchRequest):
                 if req.scope is not None
                 else previous.get("conversation_id")
             ),
-            "binding_pending": (
-                previous.get("binding_pending", False)
-                if req.enabled is None and req.scope is None
-                else False
-            ),
-            "binding_started_at": (
-                previous.get("binding_started_at")
-                if req.enabled is None and req.scope is None
-                else None
-            ),
         }
         _atomic_write_json(DATA_FILE, data)
         try:
@@ -627,8 +570,6 @@ def enable(req: EnableRequest):
             "scope": req.scope if req.enabled else "off",
             "provider": req.provider if req.enabled else None,
             "conversation_id": req.conversation_id if req.enabled else None,
-            "binding_pending": False,
-            "binding_started_at": None,
             "switched_at": datetime.now(timezone.utc).isoformat(),
             "version": previous["version"] + 1,
             "previous": previous["persona"],

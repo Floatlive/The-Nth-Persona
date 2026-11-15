@@ -2,7 +2,9 @@
 
 ## 意图
 
-把第N人格从“Codex Hook + 单一 OpenAI 兼容聊天页”升级为独立的人格规则层。同一份人格可用于 Codex、Claude、Gemini、DeepSeek 和豆包，并由用户明确决定人格是关闭、仅影响当前对话、影响当前 AI，还是影响所有已接入 AI。
+> **状态：部分被 v0.4.2 取代。** Codex 没有提供可验证的当前选中聊天接口，因此 Codex 单聊绑定已移除；Codex 仅支持“当前 AI / 所有接入”。其他平台仍可使用页面级“当前页面”作用域。
+
+把第N人格从“Codex Hook + 单一 OpenAI 兼容聊天页”升级为独立的人格规则层。同一份人格可用于 Codex、Claude、Gemini、DeepSeek 和豆包，并由用户明确决定人格是关闭、仅影响当前页面、影响当前 AI，还是影响所有已接入 AI。
 
 ## 目标
 
@@ -76,7 +78,7 @@
 - `provider`：同一 provider 的所有新请求注入。
 - `global`：所有已接入入口注入。
 
-页面内对话按标签页生成本地 `conversation_id`。Codex 进入“当前对话”时，服务端先持久化等待状态并立即停用旧作用域；首个通过本地令牌认证的 `UserPromptSubmit` Hook 原子提交 `session_id` 并完成绑定。其他平台 API 调用者需要显式传 `conversation_id`；未传时不能冒充“当前对话”。
+页面内对话按标签页生成本地 `conversation_id`。其他平台 API 调用者需要显式传 `conversation_id`；未传时不能冒充“当前页面”。Codex Hook 可提交 `session_id` 作为诊断信息，但不得用它自动绑定聊天或改变作用域。
 
 ## 历史隔离
 
@@ -106,8 +108,8 @@
 - `POST /enable`：只修改启用状态和作用域，不切人格。
 - `GET /context`：按 provider / conversation 查询是否注入。
 - `GET /codex/context`：只读兼容入口，不产生绑定副作用。
-- `POST /codex/context`：认证 Hook 入口，统一解析作用域并原子消费待绑定状态。
-- `POST /codex/bind`：进入等待状态，撤销旧作用域，避免绑定期间继续全局注入。
+- `POST /codex/context`：认证 Hook 入口，统一解析并只读返回当前作用域。
+- Codex 不提供单聊绑定端点；`POST /codex/context` 只读取当前人格状态。
 - `POST /chat`：增加 `provider`、`conversation_id` 和带版本历史，兼容现有 OpenAI 请求字段。
 
 ## UI

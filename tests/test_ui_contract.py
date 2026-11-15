@@ -91,7 +91,6 @@ def test_activation_status_describes_the_selected_scope():
     assert "影响当前页面" in html
     assert "影响当前 AI" in html
     assert "影响所有接入" in html
-    assert "当前绑定仍有效" in html
 
 
 def test_provider_defaults_are_loaded_from_the_server():
@@ -112,15 +111,14 @@ def test_rendering_activation_does_not_undo_a_provider_selection():
     assert "if(data.provider)$('providerSelect').value=data.provider" in html
 
 
-def test_codex_conversation_scope_waits_for_hook_instead_of_disabling_control():
+def test_codex_conversation_scope_is_disabled_without_binding_fallback():
     html = (ROOT / "index.html").read_text(encoding="utf-8")
 
-    assert "pendingCodexConversation" in html
-    assert "fetch('/codex/bind',{method:'POST'})" in html
-    assert "$('scopeConversation').disabled=!enabled" in html
-    assert "||codexUnavailable" not in html
-    assert "codexConversationId" not in html
-    assert "bindingCodexConversation" not in html
+    assert "pendingCodexConversation" not in html
+    assert "/codex/bind" not in html
+    assert "codexUnavailable=currentProvider()==='codex'" in html
+    assert "$('scopeConversation').disabled=!enabled||codexUnavailable" in html
+    assert "Codex 暂不支持可靠锁定单个聊天" in html
 
 
 def test_activation_controls_stack_before_the_sidebar_layout_overflows():

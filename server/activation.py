@@ -14,8 +14,6 @@ class ActivationDecision:
 def resolve_activation(
     state: dict, provider: str, conversation_id: str | None = None
 ) -> ActivationDecision:
-    if state.get("binding_pending"):
-        return ActivationDecision(False, "binding_pending")
     if not state.get("enabled", True) or state.get("scope") == "off":
         return ActivationDecision(False, "disabled")
     scope = state.get("scope", "global")

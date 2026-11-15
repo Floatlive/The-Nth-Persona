@@ -45,33 +45,6 @@ def post_codex_context(
     return asyncio.run(run())
 
 
-def begin_codex_binding() -> httpx.Response:
-    async def run() -> httpx.Response:
-        transport = httpx.ASGITransport(app=main.app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://127.0.0.1",
-        ) as client:
-            return await client.post("/codex/bind")
-
-    return asyncio.run(run())
-
-
-def disable_persona() -> httpx.Response:
-    async def run() -> httpx.Response:
-        transport = httpx.ASGITransport(app=main.app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://127.0.0.1",
-        ) as client:
-            return await client.post(
-                "/enable",
-                json={"enabled": False, "scope": "off"},
-            )
-
-    return asyncio.run(run())
-
-
 def get_integration_status() -> httpx.Response:
     async def run() -> httpx.Response:
         transport = httpx.ASGITransport(app=main.app)
@@ -82,6 +55,20 @@ def get_integration_status() -> httpx.Response:
             return await client.get("/integration/status")
 
     return asyncio.run(run())
+
+
+def test_removed_codex_binding_endpoint_returns_not_found():
+    async def run() -> httpx.Response:
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1",
+        ) as client:
+            return await client.post("/codex/bind")
+
+    response = asyncio.run(run())
+
+    assert response.status_code == 404
 
 
 def test_codex_context_uses_current_persona_and_separates_old_assistant_style(
@@ -170,7 +157,7 @@ def test_integration_status_records_latest_codex_context_read(monkeypatch, tmp_p
     assert data["codex"]["last_read_at"].endswith("+00:00")
 
 
-def test_codex_binding_ignores_old_read_and_disables_previous_global_scope(
+def test_authenticated_hook_reads_provider_scope_without_mutating_state(
     monkeypatch, tmp_path
 ):
     current_file = tmp_path / "current.json"
@@ -184,8 +171,8 @@ def test_codex_binding_ignores_old_read_and_disables_previous_global_scope(
                 "switched_at": "2026-11-15T00:00:00+00:00",
                 "version": 20,
                 "enabled": True,
-                "scope": "global",
-                "provider": None,
+                "scope": "provider",
+                "provider": "codex",
                 "conversation_id": None,
             }
         ),
@@ -196,79 +183,32 @@ def test_codex_binding_ignores_old_read_and_disables_previous_global_scope(
     monkeypatch.setattr(main, "LAST_CODEX_READ", None, raising=False)
     monkeypatch.setattr(main, "current_codex_hook_token", lambda: HOOK_TOKEN)
 
-    assert post_codex_context("old-chat").json()["active"] is True
-
-    pending = begin_codex_binding()
-    stale_get = get_codex_context("old-chat")
+    first = post_codex_context("chat-one")
+    second = post_codex_context("chat-two")
     state = get_integration_status().json()["current"]
 
-    assert pending.status_code == 200
-    assert pending.json()["current"]["binding_pending"] is True
-    assert stale_get.json()["active"] is False
-    assert stale_get.json()["reason"] == "binding_pending"
-    assert state["enabled"] is False
-    assert state["scope"] == "off"
-    assert state["conversation_id"] is None
-
-
-def test_first_authenticated_hook_atomically_consumes_pending_binding(
-    monkeypatch, tmp_path
-):
-    monkeypatch.setattr(main, "DATA_FILE", tmp_path / "current.json")
-    monkeypatch.setattr(main, "HISTORY_FILE", tmp_path / "history.json")
-    monkeypatch.setattr(main, "LAST_CODEX_READ", None, raising=False)
-    monkeypatch.setattr(main, "current_codex_hook_token", lambda: HOOK_TOKEN)
-
-    begin_codex_binding()
-    target = post_codex_context("target-chat")
-    other = post_codex_context("other-chat")
-    state = get_integration_status().json()["current"]
-
-    assert target.status_code == 200
-    assert target.json()["active"] is True
-    assert target.json()["reason"] == "conversation"
-    assert other.status_code == 200
-    assert other.json()["active"] is False
-    assert other.json()["reason"] == "conversation_mismatch"
-    assert state["binding_pending"] is False
+    assert first.status_code == 200
+    assert first.json()["active"] is True
+    assert first.json()["reason"] == "provider"
+    assert second.status_code == 200
+    assert second.json()["active"] is True
+    assert second.json()["reason"] == "provider"
     assert state["enabled"] is True
-    assert state["scope"] == "conversation"
+    assert state["scope"] == "provider"
     assert state["provider"] == "codex"
-    assert state["conversation_id"] == "target-chat"
+    assert state["conversation_id"] is None
+    assert state["version"] == 20
 
 
-def test_untrusted_hook_cannot_consume_pending_binding(monkeypatch, tmp_path):
+def test_untrusted_hook_cannot_read_persona_context(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "DATA_FILE", tmp_path / "current.json")
     monkeypatch.setattr(main, "HISTORY_FILE", tmp_path / "history.json")
     monkeypatch.setattr(main, "LAST_CODEX_READ", None, raising=False)
     monkeypatch.setattr(main, "current_codex_hook_token", lambda: HOOK_TOKEN)
 
-    begin_codex_binding()
     rejected = post_codex_context("attacker-chat", token="wrong-token")
     state = get_integration_status().json()["current"]
 
     assert rejected.status_code == 401
-    assert state["binding_pending"] is True
-    assert state["conversation_id"] is None
-
-
-def test_disabling_during_pending_prevents_late_hook_from_reenabling(
-    monkeypatch, tmp_path
-):
-    monkeypatch.setattr(main, "DATA_FILE", tmp_path / "current.json")
-    monkeypatch.setattr(main, "HISTORY_FILE", tmp_path / "history.json")
-    monkeypatch.setattr(main, "LAST_CODEX_READ", None, raising=False)
-    monkeypatch.setattr(main, "current_codex_hook_token", lambda: HOOK_TOKEN)
-
-    begin_codex_binding()
-    disabled = disable_persona()
-    late = post_codex_context("late-chat")
-    state = get_integration_status().json()["current"]
-
-    assert disabled.status_code == 200
-    assert disabled.json()["current"]["binding_pending"] is False
-    assert late.status_code == 200
-    assert late.json()["active"] is False
-    assert state["enabled"] is False
-    assert state["scope"] == "off"
+    assert state["scope"] == "global"
     assert state["conversation_id"] is None

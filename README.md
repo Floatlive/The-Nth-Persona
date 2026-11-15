@@ -8,7 +8,7 @@
 
 第N人格把人格规则放进可读的 `SKILL.md`，由本地脚本服务统一管理，再通过 UI 调用 Codex、Claude、Gemini、DeepSeek 和豆包适配器。它不修改模型本身，也不删除聊天记录。
 
-- 当前版本：`v0.4.1`
+- 当前版本：`v0.4.2`
 - 适用范围：个人本地使用、Codex 桌面端、Claude / Gemini / DeepSeek / 豆包 API
 - 项目形态：**Skills + Codex Plugin + Local App**
 
@@ -35,9 +35,9 @@
 
 - 5 个内置人格，并可在 UI 中创建自定义人格。
 - 页面点击切换，立即显示「已切换至【…】」。
-- 可选择关闭、当前对话、当前 AI 或所有已接入 AI；网页当前对话按标签页隔离。
+- Claude、Gemini、DeepSeek 和豆包可选择关闭、当前页面、当前 AI 或所有已接入 AI；当前页面按标签页隔离。
 - Codex 每次提交提示时重新读取当前人格，旧聊天记录继续保留。
-- Codex 选择“当前对话”后会立即停用旧作用域，并等待下一次通过本地令牌认证的 Hook 提交；服务端原子绑定该聊天 ID。
+- Codex 只提供“当前 AI”和“所有接入”作用域，不提供无法可靠锁定目标的“当前页面”。
 - Claude、Gemini、DeepSeek 和豆包通过各自 API 协议注入同一份人格。
 - 人格状态原子写入，版本号递增；切换期间的过期回复会被拒绝。
 - 本地 API、OpenAI 兼容聊天接口、回归测试和 Windows 安装脚本。
@@ -102,7 +102,7 @@ Windows 上，在项目目录运行：
 
 > Codex Hook 不是远程控制功能。它只在提交新提示时读取当前人格规则并追加到该轮上下文；不会修改模型本身，也不会删除当前聊天记录。
 >
-> “当前对话”以进入等待后的首个 Codex 提交为目标。绑定期间不要同时在其他 Codex 聊天提交；平台没有向外部 UI 暴露“当前选中聊天”的可靠接口，多个聊天同时提交时只能由服务端原子采用最先到达的一次。
+> Codex 未向外部 UI 提供可验证的“当前选中聊天”接口。为避免把人格误注入其他聊天，`v0.4.2` 已移除 Codex 单聊绑定；选择 Codex 时，“当前页面”会禁用。请使用“当前 AI”或“所有接入”。
 
 实际流程：
 
@@ -158,11 +158,10 @@ Hook 使用本地令牌 POST /codex/context
 | `GET` | `/health` | 服务健康状态 |
 | `GET` | `/current` | 当前人格和版本 |
 | `POST` | `/switch` | 切换人格，例如 `{"persona":"minimalist"}` |
-| `POST` | `/enable` | 设置关闭、当前对话、当前 AI 或全局作用域 |
+| `POST` | `/enable` | 设置关闭、当前页面、当前 AI 或全局作用域；Codex 拒绝当前页面 |
 | `GET` | `/context` | 按 provider / conversation 查询是否注入 |
 | `GET` | `/codex/context` | 只读兼容查询，不会绑定对话或更新 Hook 证据 |
-| `POST` | `/codex/context` | 认证后的 Codex Hook 入口；可原子完成待绑定对话 |
-| `POST` | `/codex/bind` | 进入 Codex 当前对话等待状态，并立即停用旧作用域 |
+| `POST` | `/codex/context` | 认证后的 Codex Hook 入口；只读取当前状态，不改变作用域 |
 | `GET` | `/integration/status` | 当前人格及本进程最近一次 Codex Hook 读取证据 |
 | `GET` | `/provider-defaults` | 返回前端使用的平台 Base URL 与默认模型，不含凭据 |
 | `GET` | `/personas` | 列出全部人格 |
