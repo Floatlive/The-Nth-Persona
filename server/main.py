@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from server.activation import PROVIDERS, SCOPES, resolve_activation
 from server.persona_store import BUILTIN_PERSONAS, PersonaCreate, PersonaStore
+from server.providers import get_provider
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(__file__).parent / "data"
@@ -68,11 +69,14 @@ class EnableRequest(BaseModel):
 class ChatMessage(BaseModel):
     role: str
     content: str = Field(max_length=20000)
+    persona_version: int | None = Field(default=None, ge=1)
 
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=20000)
     history: list[ChatMessage] = Field(default_factory=list, max_length=20)
+    provider: Literal["openai", "claude", "gemini", "deepseek", "doubao"] = "openai"
+    conversation_id: str | None = Field(default=None, max_length=256)
     api_key: str | None = Field(default=None, max_length=4096)
     api_base: str | None = Field(default=None, max_length=2048)
     model: str | None = Field(default=None, max_length=256)
@@ -416,38 +420,74 @@ async def chat(req: ChatRequest):
         raise HTTPException(409, "当前人格已变化，请刷新状态后重试")
 
     name = PERSONA_STORE.get(persona_id).name
-    system = (
-        f"你当前固定为【{name}】。本轮对话必须严格遵循该人格规则。\n"
-        "若用户要求切换人格，说明需要先在界面完成切换；本轮仍保持当前人格。\n\n"
-        + build_persona_context(current_state)
+    decision = resolve_activation(current_state, req.provider, req.conversation_id)
+    system = ""
+    if decision.active:
+        system = (
+            f"你当前固定为【{name}】。本轮对话必须严格遵循该人格规则。\n"
+            "若用户要求切换人格，说明需要先在界面完成切换；本轮仍保持当前人格。\n\n"
+            + build_persona_context(current_state)
+        )
+    provider_env = {
+        "openai": "OPENAI_API_KEY",
+        "claude": "ANTHROPIC_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "deepseek": "DEEPSEEK_API_KEY",
+        "doubao": "ARK_API_KEY",
+    }
+    default_bases = {
+        "openai": "https://api.openai.com/v1",
+        "claude": "https://api.anthropic.com/v1",
+        "gemini": "https://generativelanguage.googleapis.com/v1beta",
+        "deepseek": "https://api.deepseek.com",
+        "doubao": "https://ark.cn-beijing.volces.com/api/v3",
+    }
+    default_models = {
+        "openai": "gpt-4o-mini",
+        "claude": "claude-sonnet-4-5",
+        "gemini": "gemini-2.5-flash",
+        "deepseek": "deepseek-chat",
+        "doubao": "",
+    }
+    api_key = (
+        req.api_key
+        or os.getenv("NTH_API_KEY")
+        or os.getenv(provider_env[req.provider])
+        or ""
+    ).strip()
+    api_base = normalize_api_base(
+        req.api_base or os.getenv("NTH_API_BASE") or default_bases[req.provider]
     )
-    api_key = (req.api_key or os.getenv("NTH_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
-    api_base = normalize_api_base(req.api_base or os.getenv("NTH_API_BASE") or "https://api.openai.com/v1")
-    model = (req.model or os.getenv("NTH_MODEL") or "gpt-4o-mini").strip()
+    model = (req.model or os.getenv("NTH_MODEL") or default_models[req.provider]).strip()
     if not api_key:
         raise HTTPException(400, "未配置 API Key。请在页面设置里填写，或设置 NTH_API_KEY / OPENAI_API_KEY")
     if not model:
         raise HTTPException(400, "模型名称不能为空")
 
-    messages = [{"role": "system", "content": system}]
+    messages = []
     for item in req.history[-20:]:
-        if item.role in ("user", "assistant") and item.content:
-            messages.append({"role": item.role, "content": item.content[:20000]})
+        if item.role == "user" and item.content:
+            messages.append({"role": "user", "content": item.content[:20000]})
+        elif item.role == "assistant" and item.content:
+            same_persona = item.persona_version == persona_version
+            legacy_compatible = (
+                item.persona_version is None and not current_state.get("previous")
+            )
+            if same_persona or legacy_compatible:
+                messages.append(
+                    {"role": "assistant", "content": item.content[:20000]}
+                )
     messages.append({"role": "user", "content": req.message})
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{api_base}/chat/completions",
-                json={"model": model, "messages": messages, "temperature": 0.7},
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            reply = await get_provider(req.provider).complete(
+                client=client,
+                api_base=api_base,
+                api_key=api_key,
+                model=model,
+                system_prompt=system,
+                messages=messages,
             )
-        if response.is_error:
-            detail = response.text[:400]
-            raise HTTPException(response.status_code, f"上游 API 错误：{detail}")
-        body = response.json()
-        content = body["choices"][0]["message"]["content"]
-        if not isinstance(content, str):
-            raise ValueError("上游 API 返回的回复内容格式不正确")
         with STATE_LOCK:
             latest_state = read_current()
         if latest_state["persona"] != persona_id or latest_state["version"] != persona_version:
@@ -457,9 +497,14 @@ async def chat(req: ChatRequest):
             "persona": persona_id,
             "name": name,
             "persona_version": persona_version,
-            "reply": content,
+            "reply": reply.text,
             "model": model,
+            "provider": req.provider,
+            "persona_active": decision.active,
         }
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text[:400].replace(api_key, "***") if api_key else exc.response.text[:400]
+        raise HTTPException(exc.response.status_code, f"上游 API 错误：{detail}") from exc
     except HTTPException:
         raise
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:

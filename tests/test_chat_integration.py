@@ -85,3 +85,77 @@ def test_chat_sends_current_persona_as_first_system_message(monkeypatch, tmp_pat
     finally:
         upstream.shutdown()
         upstream.server_close()
+
+
+def test_chat_drops_old_persona_assistant_messages_after_switch(monkeypatch, tmp_path):
+    current_file = tmp_path / "current.json"
+    history_file = tmp_path / "history.json"
+    current_file.write_text(
+        json.dumps(
+            {
+                "user_id": "default",
+                "persona": "minimalist",
+                "name": "极简主义者",
+                "switched_at": "2026-11-15T00:00:00+00:00",
+                "version": 12,
+                "previous": "sharp-advisor",
+                "enabled": True,
+                "scope": "global",
+                "provider": None,
+                "conversation_id": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(main, "DATA_FILE", current_file)
+    monkeypatch.setattr(main, "HISTORY_FILE", history_file)
+
+    upstream = ThreadingHTTPServer(("127.0.0.1", 0), _ChatHandler)
+    thread = threading.Thread(target=upstream.serve_forever, daemon=True)
+    thread.start()
+    try:
+        async def run():
+            transport = httpx.ASGITransport(app=main.app)
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://127.0.0.1",
+            ) as client:
+                return await client.post(
+                    "/chat",
+                    json={
+                        "provider": "deepseek",
+                        "message": "继续",
+                        "history": [
+                            {"role": "user", "content": "用户事实"},
+                            {
+                                "role": "assistant",
+                                "content": "旧人格观点",
+                                "persona_version": 11,
+                            },
+                            {
+                                "role": "assistant",
+                                "content": "当前人格观点",
+                                "persona_version": 12,
+                            },
+                            {"role": "assistant", "content": "未标记旧回复"},
+                        ],
+                        "api_key": "test-key",
+                        "api_base": f"http://127.0.0.1:{upstream.server_port}",
+                        "model": "test-model",
+                        "persona_version": 12,
+                    },
+                )
+
+        response = asyncio.run(run())
+
+        assert response.status_code == 200, response.text
+        contents = [
+            item["content"] for item in _ChatHandler.request_body["messages"]
+        ]
+        assert "用户事实" in contents
+        assert "当前人格观点" in contents
+        assert "旧人格观点" not in contents
+        assert "未标记旧回复" not in contents
+    finally:
+        upstream.shutdown()
+        upstream.server_close()
