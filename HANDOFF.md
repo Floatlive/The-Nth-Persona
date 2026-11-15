@@ -3,14 +3,14 @@
 > **每次更新后必须刷新本文件。**  
 > 转移时：把下面的 **第N人格.zip** 交给另一个 AI，并复制「交接提示词」。
 
-**项目版本：v0.3.1** · **交接文档更新：2026-11-14**
+**项目版本：v0.4.0** · **交接文档更新：2026-11-15**
 
 ---
 
 ## 交接提示词（复制给下一个 AI）
 
 ```
-这是「第N人格 / The Nth Persona」完整项目包（v0.3.1）。
+这是「第N人格 / The Nth Persona」完整项目包（v0.4.0）。
 请先完整阅读 HANDOFF.md，再读 README.md、server/main.py、index.html、各人格 SKILL.md。开始修改前先核对实际文件，不要仅凭本交接文档推断代码现状。
 
 硬性规则：
@@ -24,7 +24,7 @@
 - 页面点击立即 Toast「已切换至【…】」，并可在页内用 OpenAI 兼容 API 对话（Key 存在浏览器 localStorage）
 - 也可不启动服务：把 CHAT_BOOTSTRAP.md 贴进任意 AI 对话使用
 
-当前目标：以个人本地客户端为主，维护 Codex 桌面端接入；暂不部署公网或扩展其他 AI。GitHub 已完成 `v0.3.0` 首次版本发布，当前版本为 `v0.3.1`。
+当前目标：以“本地内置脚本服务 + UI 调用”为主，统一支持 Codex、Claude、Gemini、DeepSeek 和豆包；不部署公网。GitHub 已完成 `v0.3.0` 首次版本发布，`v0.4.0` 代码尚未创建 Tag 或 Release。
 ```
 
 **转移文件**：`第N人格.zip`（与本 HANDOFF 同级的压缩包，内含完整目录）
@@ -74,13 +74,14 @@ GitHub：https://github.com/Floatlive/The-Nth-Persona
 - [x] v0.2.9：增加本地 Host 白名单；Windows / macOS / Linux 启动入口统一优先使用项目 `.venv`，缺依赖时才安装；增加后端回归测试入口
 - [x] v0.3.0：增加 Codex `UserPromptSubmit` 插件 Hook 与 `/codex/context`，切换后 Codex 后续提示读取当前人格
 - [x] v0.3.1：分别增强五个人格的独立决策协议和安全边界；新增人格契约回归测试
+- [x] v0.4.0：动态人格创建；四档启用作用域；Codex / Claude / Gemini / DeepSeek / 豆包统一适配；服务端旧人格历史隔离
 
 ### 未做 / 可继续
 - [ ] 多用户（`user_id` 仍 default；无鉴权）
 - [x] 定位为个人本地客户端使用，不计划公网部署
 - [x] 增加 Windows 启动入口 `open.bat` 与 `open.ps1`；保留 `open.sh`（需在目标 Windows 机器实测）
 - [x] 更新 `.gitignore`，排除本地人格状态、历史、密钥文件、日志、虚拟环境和缓存；ZIP 不包含运行时状态 JSON
-- [ ] 新建人格表单 / 更多人格
+- [x] 新建人格表单 / 更多人格
 - [ ] 人格输出自动评测（fixture）
 - [x] GitHub 首次初始化提交（`56421dc`，已推送至 `main`）
 - [x] `v0.3.0` Git 标签与 GitHub Release
@@ -285,7 +286,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ## 11. 维护约定
 
 1. 改完 → 更新本文件版本、已完成、日期 → 打 zip  
-2. 新人格：复制 `persona-template` → 注册 `PERSONAS` + `PERSONA_DIRS` + 前端 `personas` 数组  
+2. 新人格：优先通过 UI 或 `POST /personas` 创建；内置人格仍使用仓库目录
 3. 禁止把 xin-da-ya 三段式完整流程贴进其他人设  
 
-**正式项目包文件名**：`第N人格-v0.3.1.zip`（后续版本按实际版本号递增）
+**正式项目包文件名**：当前未生成 `v0.4.0` Release ZIP；不要把工作树临时文件当作发布包。

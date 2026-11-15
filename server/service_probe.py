@@ -2,9 +2,13 @@ import json
 import sys
 from urllib.request import urlopen
 
+try:
+    from server.version import APP_NAME, APP_VERSION
+except ModuleNotFoundError:
+    from version import APP_NAME, APP_VERSION
 
-EXPECTED_NAME = "第N人格"
-EXPECTED_VERSION = "0.3.1"
+EXPECTED_NAME = APP_NAME
+EXPECTED_VERSION = APP_VERSION
 
 
 def main():

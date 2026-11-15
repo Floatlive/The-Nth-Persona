@@ -56,14 +56,14 @@ def run_probe(url):
 
 
 def test_probe_accepts_matching_service():
-    with version_server({"name": "第N人格", "version": "0.3.1"}) as url:
+    with version_server({"name": "第N人格", "version": "0.4.0"}) as url:
         result = run_probe(url)
 
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == {
         "status": "current",
         "name": "第N人格",
-        "version": "0.3.1",
+        "version": "0.4.0",
     }
 
 

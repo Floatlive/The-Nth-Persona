@@ -1,6 +1,7 @@
 __pycache__/
 .pytest_cache/
 .pytest-tmp-*/
+.pytest-*/
 .pytest-publish-check/
 .pytest-*-check/
 docs/superpowers/plans/
@@ -19,6 +20,7 @@ server/data/current.json
 server/data/history.json
 server/data/personas/
 .runtime/
+.superpowers/
 *.zip
 .idea/
 .vscode/

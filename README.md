@@ -6,10 +6,10 @@
 
 可切换、可验证、可回滚的本地 AI 人格层。
 
-第N人格把人格规则放进可读的 `SKILL.md`，用本地页面切换当前人格，并通过 Codex `UserPromptSubmit` Hook 把当前规则追加到后续提示中。它不修改模型本身，也不删除聊天记录。
+第N人格把人格规则放进可读的 `SKILL.md`，由本地脚本服务统一管理，再通过 UI 调用 Codex、Claude、Gemini、DeepSeek 和豆包适配器。它不修改模型本身，也不删除聊天记录。
 
-- 当前版本：`v0.3.1`
-- 适用范围：个人本地使用、Codex 桌面端接入、OpenAI 兼容 API
+- 当前版本：`v0.4.0`
+- 适用范围：个人本地使用、Codex 桌面端、Claude / Gemini / DeepSeek / 豆包 API
 - 项目形态：**Skills + Codex Plugin + Local App**
 
 ## 使用前提
@@ -33,10 +33,11 @@
 
 ## 你能得到什么
 
-- 5 个可切换人格：冷酷执行官、现实毒舌顾问、赛博老中医、极简主义者、信达雅。
+- 5 个内置人格，并可在 UI 中创建自定义人格。
 - 页面点击切换，立即显示「已切换至【…】」。
-- 当前人格只有一个，切换是覆盖，不是叠加。
+- 可选择关闭、当前对话、当前 AI 或所有已接入 AI。
 - Codex 每次提交提示时重新读取当前人格，旧聊天记录继续保留。
+- Claude、Gemini、DeepSeek 和豆包通过各自 API 协议注入同一份人格。
 - 人格状态原子写入，版本号递增；切换期间的过期回复会被拒绝。
 - 本地 API、OpenAI 兼容聊天接口、回归测试和 Windows 安装脚本。
 
@@ -61,7 +62,19 @@ chmod +x open.sh
 ./open.sh
 ```
 
-启动脚本会优先使用项目 `.venv`；依赖缺失时才安装。首次运行后，在页面的 API 设置中填写 OpenAI 兼容服务的 Base URL、API Key 和模型。
+启动脚本会优先使用项目 `.venv`；依赖缺失时才安装。首次运行后，在页面选择 AI，并填写该平台的 API Base、API Key 和模型或 Endpoint ID。配置按平台保存在当前浏览器。
+
+## 支持的平台
+
+| 平台 | 接入方式 | 人格注入位置 |
+| --- | --- | --- |
+| Codex | `UserPromptSubmit` Hook | `additionalContext` |
+| Claude | Anthropic Messages API | 顶层 `system` |
+| Gemini | Gemini `generateContent` | `system_instruction` |
+| DeepSeek | OpenAI 兼容 Chat Completions | 首条 `system` message |
+| 豆包 | 火山方舟 Chat Completions | 首条 `system` message |
+
+> Claude、Gemini、DeepSeek、豆包的官方网页不会被本项目 UI 自动接管。只有经过本地网关的 API 请求会被注入人格；Codex 因提供 Hook，可直接影响桌面端后续提交。
 
 默认使用 `127.0.0.1:8000`。如果端口被旧版第N人格或其他服务占用，启动脚本会停止并提示，不会误连；也可以指定其他端口：
 
@@ -142,12 +155,15 @@ Hook 读取 /codex/context
 | `GET` | `/health` | 服务健康状态 |
 | `GET` | `/current` | 当前人格和版本 |
 | `POST` | `/switch` | 切换人格，例如 `{"persona":"minimalist"}` |
+| `POST` | `/enable` | 设置关闭、当前对话、当前 AI 或全局作用域 |
+| `GET` | `/context` | 按 provider / conversation 查询是否注入 |
 | `GET` | `/codex/context` | 返回 Codex Hook 使用的当前人格上下文 |
 | `GET` | `/integration/status` | 当前人格及本进程最近一次 Codex Hook 读取证据 |
 | `GET` | `/personas` | 列出全部人格 |
 | `GET` | `/history` | 查看切换历史 |
 | `POST` | `/reset` | 重置为默认人格 |
-| `POST` | `/chat` | 使用当前人格调用 OpenAI 兼容接口 |
+| `POST` | `/personas` | 从统一模板创建自定义人格 |
+| `POST` | `/chat` | 通过 Claude、Gemini、DeepSeek、豆包或兼容接口调用模型 |
 
 API 文档启动后位于 `http://127.0.0.1:8000/docs`。
 
@@ -183,6 +199,7 @@ API 文档启动后位于 `http://127.0.0.1:8000/docs`。
 
 - 项目默认只监听 `127.0.0.1`，不是公网服务。
 - API Key 只保存在浏览器 `localStorage` 或本机环境变量；共享设备不要保存。
+- API Key 按 provider 分开保存；自定义人格、状态和历史文件不包含 Key。
 - 当前是单用户本地版，没有鉴权和多用户隔离。
 - Skill 和 Hook 都属于提示层约束，不是模型运行时的硬权限。
 - Hook 不读取 API Key，也不读取聊天历史；服务未启动时，本轮不会注入人格。

@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, model_validator
 from server.activation import PROVIDERS, SCOPES, resolve_activation
 from server.persona_store import BUILTIN_PERSONAS, PersonaCreate, PersonaStore
 from server.providers import get_provider
+from server.version import APP_NAME, APP_VERSION
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(__file__).parent / "data"
@@ -27,7 +28,7 @@ LAST_CODEX_READ = None
 
 app = FastAPI(
     title="第N人格 · The Nth Persona",
-    version="0.3.1",
+    version=APP_VERSION,
     description="可切换的高优先级 AI 人格系统",
 )
 app.add_middleware(
@@ -236,12 +237,12 @@ def index():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "version": "0.3.1"}
+    return {"ok": True, "version": APP_VERSION}
 
 
 @app.get("/version")
 def version():
-    return {"version": "0.3.1", "name": "第N人格"}
+    return {"version": APP_VERSION, "name": APP_NAME}
 
 
 @app.get("/personas")
