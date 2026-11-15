@@ -2,70 +2,290 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#101114" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="在本地切换、验证并使用 AI 人格规则的控制台。" />
+  <meta name="theme-color" content="#090d0f" />
+  <!-- The next legacy inline icon is intentionally disabled. -->
+  <!--
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111719'/%3E%3Cpath d='M17 47V17h8l14 18V17h8v30h-8L25 29v18z' fill='%234fd8c6'/%3E%3C/svg%3E" />
+  -->
+  <link rel="icon" href="data&#58;image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMxMTE3MTkiLz48cGF0aCBkPSJNMTcgNDdWMTdoOGwxNCAxOFYxN2g4djMwaC04TDI1IDI5djE4eiIgZmlsbD0iIzRmZDhjNiIvPjwvc3ZnPg==" type="image/svg+xml" />
   <title>第N人格 · The Nth Persona</title>
   <style>
-    :root{color-scheme:dark;--bg:#101114;--panel:#17191e;--panel2:#1d2026;--line:#2b2e36;--text:#f2f3f5;--muted:#9298a4;--soft:#c4c8d0;--accent:#b9a4ff;--green:#7bd6ad;--amber:#e8bd76;--shadow:0 22px 70px #0007}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 65% -20%,#59478a33,transparent 45%),var(--bg);color:var(--text);font-family:Inter,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh}
-    button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr);max-width:1600px;margin:auto}
-    .sidebar{border-right:1px solid var(--line);padding:28px 18px 22px;display:flex;flex-direction:column;gap:28px;background:#111216aa;backdrop-filter:blur(16px)}
-    .brand{display:flex;align-items:center;gap:12px;padding:0 8px}.brand-mark{width:38px;height:38px;border-radius:13px;background:linear-gradient(145deg,#b9a4ff,#7560c8);display:grid;place-items:center;color:#17131f;font-size:20px;font-weight:900;box-shadow:0 8px 26px #9c83ff35}.brand-name{font-weight:750;letter-spacing:.02em}.brand-sub{font-size:10px;color:var(--muted);letter-spacing:.16em;margin-top:3px}
-    .nav-label{font-size:10px;color:#747a86;letter-spacing:.16em;padding:0 10px 10px}.nav-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:11px;color:#b8bdc7;font-size:13px;margin:2px 0}.nav-item.active{background:#292433;color:#e6ddff;border:1px solid #54476c66}.nav-icon{width:20px;text-align:center;font-size:15px}.side-bottom{margin-top:auto}.server-card{padding:14px;border:1px solid var(--line);border-radius:14px;background:#17191e}.server-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650}.dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px #e8bd7618}.dot.online{background:var(--green);box-shadow:0 0 0 4px #7bd6ad18}.server-desc{font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}.version{font-size:10px;color:#69707c;padding:14px 10px 0;letter-spacing:.08em}
-    main{min-width:0;padding:34px clamp(20px,4vw,62px) 54px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:42px}.crumb{font-size:12px;color:var(--muted)}.top-actions{display:flex;gap:9px;align-items:center}.status{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:99px;padding:8px 12px;color:#b9bec8;font-size:11px;background:#17191e}.status .dot{width:6px;height:6px}.btn{border:1px solid var(--line);background:#202229;color:#d8dbe2;border-radius:10px;padding:9px 13px;font-size:12px;transition:.2s}.btn:hover{border-color:#71618f;background:#282431}.btn.primary{background:#b9a4ff;color:#1b1724;border-color:#b9a4ff;font-weight:700}.btn.primary:hover{background:#c9baff}
-    .eyebrow{font-size:10px;color:var(--accent);letter-spacing:.22em;font-weight:700;margin-bottom:13px}.hero{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:30px}.hero h1{font-size:clamp(30px,4vw,48px);letter-spacing:-.055em;line-height:1.1;margin:0;font-weight:760}.hero p{margin:13px 0 0;color:var(--muted);font-size:13px;line-height:1.7}.current-chip{flex:0 0 auto;border:1px solid #6e5c92;background:#272234;border-radius:14px;padding:12px 15px;min-width:155px}.current-chip small{display:block;color:#a99abd;font-size:10px;margin-bottom:7px}.current-chip strong{font-size:14px}
-    .section-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}.section-head h2{font-size:14px;margin:0;font-weight:700}.section-head span{font-size:11px;color:var(--muted)}.persona-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:30px}.persona{position:relative;text-align:left;min-height:174px;padding:17px 15px;border-radius:15px;border:1px solid var(--line);background:linear-gradient(155deg,#1c1e24,#17191e);color:var(--text);transition:transform .2s,border-color .2s,background .2s;overflow:hidden}.persona:hover{transform:translateY(-3px);border-color:#696078}.persona.selected{border-color:#a990e6;background:linear-gradient(155deg,#30283f,#1c1b24);box-shadow:0 0 0 1px #a990e633,0 14px 36px #0003}.persona.selected:after{content:"当前生效";position:absolute;top:12px;right:11px;font-size:9px;color:#d5c7ff;background:#74609a55;border:1px solid #9a83c777;border-radius:99px;padding:4px 7px}.p-emoji{font-size:25px;margin-bottom:18px;display:block}.persona h3{font-size:13px;margin:0 0 7px;font-weight:700}.persona p{font-size:11px;line-height:1.55;color:var(--muted);margin:0}.p-id{font-family:ui-monospace,monospace;font-size:9px;color:#646b77;margin-top:13px;display:block;letter-spacing:.02em}
-    .workspace{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;align-items:stretch}.chat-panel,.info-panel{border:1px solid var(--line);border-radius:16px;background:#17191e;min-width:0}.chat-panel{display:flex;flex-direction:column;min-height:470px}.panel-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-title{font-size:13px;font-weight:700}.panel-sub{font-size:10px;color:var(--muted);margin-top:4px}.messages{padding:18px;display:flex;flex-direction:column;gap:13px;flex:1;min-height:270px;max-height:480px;overflow:auto}.welcome{margin:auto;text-align:center;max-width:340px;padding:24px 10px}.welcome-icon{width:46px;height:46px;border-radius:16px;background:#2c2639;display:grid;place-items:center;margin:0 auto 15px;font-size:22px}.welcome h3{font-size:15px;margin:0 0 8px}.welcome p{font-size:11px;color:var(--muted);line-height:1.7;margin:0}.msg{max-width:85%;padding:11px 13px;border-radius:13px;font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.msg.user{align-self:flex-end;background:#40365a;color:#f1eaff;border-bottom-right-radius:4px}.msg.bot{align-self:flex-start;background:#24272e;color:#e2e5eb;border-bottom-left-radius:4px}.msg.sys{align-self:center;max-width:100%;padding:5px 10px;background:#202229;border:1px solid #343741;border-radius:99px;color:#aeb4c0;font-size:10px}.composer{border-top:1px solid var(--line);padding:13px;display:flex;gap:9px}.composer input{min-width:0;flex:1;background:#101216;border:1px solid #30333c;border-radius:10px;padding:12px 13px;color:var(--text);font-size:12px;outline:none}.composer input:focus,.field input:focus{border-color:#8e79c0;box-shadow:0 0 0 3px #9b83dc18}.composer .btn{padding:0 18px}.info-panel{padding:17px;display:flex;flex-direction:column;gap:16px}.info-title{font-size:12px;font-weight:700}.active-persona{padding:15px;border-radius:13px;background:#24212e;border:1px solid #4a405e}.active-top{display:flex;align-items:center;gap:10px}.active-emoji{font-size:23px}.active-name{font-size:13px;font-weight:700}.active-id{font-size:9px;color:#a49ab6;margin-top:4px;font-family:ui-monospace,monospace}.active-note{font-size:11px;color:#b8b1c5;line-height:1.65;margin-top:12px}.info-line{height:1px;background:var(--line)}.mini-label{font-size:10px;color:var(--muted);margin-bottom:7px}.info-value{font-size:11px;color:#d6d9df;line-height:1.6}.setting-link{margin-top:auto;text-align:left;background:transparent;border:0;color:#bba8f0;font-size:11px;padding:0}.setting-link:hover{color:#d6caff}
-    details.settings{margin-top:16px;border:1px solid var(--line);border-radius:14px;background:#17191e;padding:0 16px}details.settings summary{list-style:none;cursor:pointer;padding:15px 0;font-size:12px;font-weight:650;color:#d9dce3;display:flex;justify-content:space-between}details.settings summary::-webkit-details-marker{display:none}details.settings summary:after{content:"＋";color:var(--muted)}details.settings[open] summary:after{content:"－"}.settings-body{border-top:1px solid var(--line);padding:15px 0 17px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-size:10px;color:var(--muted);margin-bottom:7px}.field input{width:100%;background:#101216;border:1px solid #30333c;border-radius:9px;padding:10px;color:var(--text);font-size:11px;outline:none}.settings-foot{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.hint{font-size:10px;color:#777e8b;line-height:1.6;max-width:570px}.toast{position:fixed;top:22px;left:50%;transform:translate(-50%,-18px);opacity:0;pointer-events:none;z-index:20;background:#262332;border:1px solid #7c69a5;color:#eee7ff;border-radius:12px;padding:12px 17px;box-shadow:var(--shadow);font-size:12px;transition:.22s}.toast.show{opacity:1;transform:translate(-50%,0)}.toast small{display:block;color:#b5a9ca;margin-top:3px;font-size:10px}.footer{margin-top:24px;text-align:center;color:#666d79;font-size:10px;letter-spacing:.08em}
-    @media(max-width:1100px){.persona-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.workspace{grid-template-columns:minmax(0,1fr) 240px}}
-    @media(max-width:760px){.app{display:block}.sidebar{display:none}main{padding:20px 15px 36px}.topbar{margin-bottom:28px}.hero{align-items:start;flex-direction:column}.current-chip{width:100%}.persona-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.persona{min-height:150px;padding:14px}.persona.selected:after{font-size:8px}.workspace{grid-template-columns:1fr}.info-panel{order:-1}.chat-panel{min-height:430px}.messages{max-height:420px}.settings-body{grid-template-columns:1fr}.settings-foot{align-items:start;flex-direction:column}.status{font-size:10px;padding:7px 9px}.top-actions .btn{padding:8px 10px}}
-    @media(max-width:390px){.persona-grid{grid-template-columns:1fr 1fr}.persona h3{font-size:12px}.persona p{font-size:10px}.topbar{align-items:flex-start}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
+    :root{
+      color-scheme:dark;
+      --bg:#090d0f;
+      --sidebar:#0c1113;
+      --panel:#111719;
+      --panel-strong:#151d20;
+      --surface:#192226;
+      --line:#29363b;
+      --line-strong:#3c5056;
+      --text:#f4f7f6;
+      --muted:#98a6aa;
+      --soft:#c7d0d2;
+      --accent:#4fd8c6;
+      --accent-hover:#70e3d3;
+      --accent-ink:#052621;
+      --green:#69d7a4;
+      --amber:#e2b96f;
+      --radius-lg:16px;
+      --radius-md:12px;
+      --radius-sm:8px;
+      --shadow:0 24px 70px rgba(0,0,0,.34);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI Variable","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.56}
+    button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .skip-link{position:fixed;top:12px;left:12px;z-index:30;min-height:44px;display:flex;align-items:center;padding:0 16px;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-ink);font-size:14px;font-weight:700;text-decoration:none;transform:translateY(-160%)}
+    .skip-link:focus{transform:translateY(0)}
+    .app{min-height:100vh;display:grid;grid-template-columns:252px minmax(0,1fr)}
+    .sidebar{position:sticky;top:0;height:100svh;border-right:1px solid var(--line);padding:28px 20px 22px;display:flex;flex-direction:column;gap:32px;background:var(--sidebar)}
+    .brand{display:flex;align-items:center;gap:12px;padding:0 6px}
+    .brand-mark{width:40px;height:40px;border-radius:10px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink);font-size:20px;font-weight:800}
+    .brand-name{font-size:16px;font-weight:700}
+    .brand-sub{font-size:11px;color:var(--muted);margin-top:3px}
+    .nav-label{font-size:12px;color:var(--muted);padding:0 10px 10px}
+    .nav-item{min-height:44px;display:flex;align-items:center;gap:11px;padding:10px 12px;border-left:2px solid transparent;border-radius:var(--radius-sm);color:#bac5c7;font-size:14px;margin:3px 0}
+    .nav-item.active{background:var(--panel-strong);color:var(--text);border-left-color:var(--accent)}
+    .nav-icon{width:20px;text-align:center;color:var(--muted);font-size:15px}
+    .nav-item.active .nav-icon{color:var(--accent)}
+    .nav-count{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+    .side-bottom{margin-top:auto}
+    .server-card{padding:16px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--panel)}
+    .server-head{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:650}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px rgba(226,185,111,.12)}
+    .dot.online{background:var(--green);box-shadow:0 0 0 4px rgba(105,215,164,.12)}
+    .server-desc{font-size:12px;color:var(--muted);line-height:1.65;margin-top:10px}
+    .version{font-size:11px;color:#718084;padding:16px 8px 0}
+    main{width:100%;max-width:1500px;min-width:0;padding:32px clamp(24px,4vw,64px) 48px;margin:0 auto}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:48px}
+    .crumb{font-size:13px;color:var(--muted)}
+    .top-actions{display:flex;gap:10px;align-items:center}
+    .status{min-height:44px;display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 14px;color:var(--soft);font-size:13px;background:var(--panel)}
+    .status .dot{width:7px;height:7px}
+    .btn{min-height:44px;border:1px solid var(--line-strong);background:var(--panel-strong);color:var(--text);border-radius:var(--radius-sm);padding:0 16px;font-size:14px;font-weight:600;transition:background-color .16s,border-color .16s,color .16s,transform .16s}
+    .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+    .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:48px;padding:0 0 36px;margin-bottom:28px;border-bottom:1px solid var(--line)}
+    .eyebrow{font-size:13px;color:var(--accent);font-weight:650;margin-bottom:14px}
+    .hero h1{font-size:clamp(34px,4vw,54px);letter-spacing:-.04em;line-height:1.08;margin:0;font-weight:650}
+    .hero p{margin:16px 0 0;color:var(--muted);font-size:15px;line-height:1.75}
+    .current-chip{flex:0 0 220px;border-left:2px solid var(--accent);padding:10px 0 10px 16px}
+    .current-chip small{display:block;color:var(--muted);font-size:12px;margin-bottom:8px}
+    .current-chip strong{font-size:16px;font-weight:650}
+    .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 16px}
+    .section-head h2{font-size:17px;margin:0;font-weight:650}
+    .section-head span{font-size:13px;color:var(--muted)}
+    .persona-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:32px}
+    .persona{position:relative;text-align:left;min-height:186px;padding:18px 16px;border-radius:var(--radius-md);border:1px solid var(--line);background:var(--panel);color:var(--text);transition:transform .16s,border-color .16s,background-color .16s;overflow:hidden}
+    .persona.selected{border-color:var(--accent);background:#13211f;box-shadow:inset 0 0 0 1px rgba(79,216,198,.16)}
+    .persona.selected:after{content:"当前生效";position:absolute;top:13px;right:12px;font-size:11px;font-weight:650;color:var(--accent);background:#0e2925;border:1px solid rgba(79,216,198,.38);border-radius:999px;padding:5px 8px}
+    .p-emoji{font-size:25px;margin-bottom:24px;display:block}
+    .persona h3{font-size:15px;margin:0 0 8px;font-weight:650}
+    .persona p{font-size:13px;line-height:1.6;color:var(--muted);margin:0}
+    .p-id{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace;font-size:11px;color:#708084;margin-top:16px;display:block}
+    .workspace{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:16px;align-items:stretch}
+    .chat-panel,.info-panel,.settings{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel);min-width:0}
+    .chat-panel{display:flex;flex-direction:column;min-height:540px}
+    .panel-head{min-height:72px;padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .panel-title{font-size:15px;font-weight:650}
+    .panel-sub{font-size:12px;color:var(--muted);margin-top:5px}
+    .messages{padding:20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:300px;max-height:520px;overflow:auto;scrollbar-color:var(--line-strong) transparent}
+    .welcome{margin:auto;text-align:center;max-width:360px;padding:28px 14px}
+    .welcome-icon{width:48px;height:48px;border-radius:var(--radius-md);border:1px solid var(--line);background:var(--panel-strong);color:var(--accent);display:grid;place-items:center;margin:0 auto 16px;font-size:21px}
+    .welcome h3{font-size:17px;margin:0 0 9px;font-weight:650}
+    .welcome p{font-size:14px;color:var(--muted);line-height:1.7;margin:0}
+    .msg{max-width:min(82%,680px);padding:12px 14px;border-radius:var(--radius-md);font-size:14px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+    .msg.user{align-self:flex-end;background:#183d38;color:#eafbf8;border-bottom-right-radius:4px}
+    .msg.bot{align-self:flex-start;background:var(--surface);color:#e3e9e9;border-bottom-left-radius:4px}
+    .msg.sys{align-self:center;max-width:100%;padding:7px 11px;background:transparent;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}
+    .composer{border-top:1px solid var(--line);padding:14px;display:flex;gap:10px}
+    .composer input,.field input,.field select,.field textarea{min-width:0;background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none}
+    .composer input{height:48px;flex:1;padding:0 14px}
+    .composer .btn{height:48px;padding:0 22px}
+    .composer input:focus,.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,216,198,.12)}
+    .info-panel{padding:20px;display:flex;flex-direction:column;gap:20px}
+    .info-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .info-title{font-size:15px;font-weight:650}
+    .rule-tip{position:relative;width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:17px}
+    .rule-tip:before{content:attr(data-tooltip);position:absolute;right:0;top:calc(100% + 8px);z-index:5;width:230px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--panel-strong);box-shadow:var(--shadow);color:var(--soft);font-size:12px;line-height:1.6;text-align:left;white-space:normal;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .16s,transform .16s,visibility .16s}
+    .rule-tip:hover:before,.rule-tip:focus-visible:before{opacity:1;visibility:visible;transform:translateY(0)}
+    .active-persona{padding:4px 0 20px;border-bottom:1px solid var(--line)}
+    .active-top{display:flex;align-items:center;gap:12px}
+    .active-emoji{width:42px;height:42px;border-radius:var(--radius-sm);background:var(--panel-strong);display:grid;place-items:center;font-size:22px}
+    .active-name{font-size:16px;font-weight:650}
+    .active-id{font-size:11px;color:var(--muted);margin-top:4px;font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
+    .active-note{font-size:13px;color:var(--soft);line-height:1.7;margin-top:14px}
+    .info-line{height:1px;background:var(--line)}
+    .mini-label{font-size:12px;color:var(--muted);margin-bottom:8px}
+    .info-value{font-size:13px;color:var(--soft);line-height:1.7}
+    .setting-link{min-height:44px;margin-top:auto;text-align:left;background:transparent;border:0;color:var(--accent);font-size:13px;font-weight:600;padding:0}
+    .control-panel{margin:0 0 34px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel);padding:18px;display:grid;grid-template-columns:180px minmax(300px,1fr) 220px;gap:18px;align-items:center}
+    .control-group{min-width:0}
+    .control-label{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:9px}
+    .toggle-row{display:flex;align-items:center;gap:10px;color:var(--text);font-size:14px}
+    .toggle-row input{width:18px;height:18px;accent-color:var(--accent)}
+    .scope-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line-strong);border-radius:var(--radius-sm);overflow:hidden}
+    .scope-options label{position:relative;min-width:0}
+    .scope-options input{position:absolute;opacity:0;pointer-events:none}
+    .scope-options span{display:block;padding:9px 8px;text-align:center;color:var(--muted);font-size:12px;border-right:1px solid var(--line-strong);cursor:pointer}
+    .scope-options label:last-child span{border-right:0}
+    .scope-options input:checked+span{background:var(--accent-soft);color:var(--accent);font-weight:700}
+    .provider-select{width:100%;height:38px;padding:0 10px;background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--radius-sm);color:var(--text)}
+    details.settings{margin-top:16px;padding:0 18px}
+    details.settings summary{min-height:56px;list-style:none;cursor:pointer;padding:0;font-size:14px;font-weight:650;color:var(--text);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    details.settings summary::-webkit-details-marker{display:none}
+    details.settings summary:after{content:"＋";color:var(--muted);font-size:18px;font-weight:400}
+    details.settings[open] summary:after{content:"－"}
+    .summary-meta{color:var(--muted);font-size:12px;font-weight:400;margin-left:8px}
+    .settings-body{border-top:1px solid var(--line);padding:18px 0 20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .field label{display:block;font-size:12px;color:var(--soft);margin-bottom:8px}
+    .field input,.field select{width:100%;height:44px;padding:0 12px}
+    .field textarea{width:100%;min-height:132px;padding:12px;resize:vertical;line-height:1.6}
+    .field.wide{grid-column:1/-1}
+    .settings-foot{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:20px;padding-top:2px}
+    .hint{font-size:12px;color:var(--muted);line-height:1.65;max-width:760px}
+    .toast{position:fixed;top:20px;right:20px;transform:translateY(-12px);opacity:0;pointer-events:none;z-index:20;min-width:260px;background:var(--panel-strong);border:1px solid var(--line-strong);color:var(--text);border-radius:var(--radius-md);padding:13px 16px;box-shadow:var(--shadow);font-size:14px;transition:opacity .18s,transform .18s}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .toast small{display:block;color:var(--muted);margin-top:4px;font-size:12px}
+    .footer{margin-top:28px;text-align:center;color:#718084;font-size:11px}
+    @media(hover:hover){
+      .btn:hover{border-color:#587078;background:#1a2529}
+      .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+      .persona:hover{transform:translateY(-2px);border-color:var(--line-strong);background:var(--panel-strong)}
+      .persona.selected:hover{border-color:var(--accent);background:#162725}
+      .setting-link:hover{color:var(--accent-hover)}
+    }
+    @media(max-width:1180px){
+      .persona-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .workspace{grid-template-columns:minmax(0,1fr) 260px}
+      .control-panel{grid-template-columns:1fr}
+    }
+    @media(max-width:860px){
+      .app{display:block}
+      .sidebar{display:none}
+      main{padding:24px 22px 40px}
+      .topbar{margin-bottom:38px}
+      .workspace{grid-template-columns:1fr}
+      .control-panel{grid-template-columns:1fr}
+      .info-panel{order:-1}
+      .chat-panel{min-height:500px}
+      .messages{max-height:480px}
+    }
+    @media(max-width:640px){
+      main{padding:18px 16px 32px}
+      .topbar{align-items:stretch;flex-direction:column;margin-bottom:34px}
+      .top-actions{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto}
+      .status{min-width:0}
+      .hero{align-items:flex-start;flex-direction:column;gap:24px;padding-bottom:30px}
+      .hero h1{font-size:36px}
+      .hero p{font-size:14px}
+      .current-chip{flex:auto;width:100%;padding:10px 0 10px 14px}
+      .section-head{align-items:flex-start;flex-direction:column;gap:7px}
+      .persona-grid{grid-template-columns:1fr;gap:10px}
+      .persona{min-height:138px;padding:17px 110px 17px 72px;display:grid;grid-template-columns:1fr;align-content:center}
+      .persona.selected:after{top:14px;right:13px}
+      .p-emoji{position:absolute;left:18px;top:18px;margin:0}
+      .persona h3{font-size:15px}
+      .persona p{font-size:13px}
+      .p-id{margin-top:10px}
+      .panel-head{padding:13px 14px}
+      .messages{padding:16px}
+      .msg{max-width:90%}
+      .composer{display:grid;grid-template-columns:minmax(0,1fr) auto;padding:12px}
+      .composer .btn{padding:0 16px}
+      .info-panel{padding:18px}
+      .settings-body{grid-template-columns:1fr}
+      .settings-foot{align-items:stretch;flex-direction:column}
+      .settings-foot .btn{width:100%}
+      .toast{top:12px;left:12px;right:12px;min-width:0}
+    }
+    @media(max-width:360px){
+      .top-actions{grid-template-columns:1fr}
+      .hero h1{font-size:32px}
+      .persona{padding-right:86px}
+      .composer{grid-template-columns:1fr}
+      .composer .btn{width:100%}
+    }
+    @media(prefers-reduced-motion:reduce){
+      html{scroll-behavior:auto}
+      *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+    }
   </style>
 </head>
 <body>
-  <div class="toast" id="toast"><span id="toastMain"></span><small id="toastSub"></small></div>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastMain"></span><small id="toastSub"></small></div>
   <div class="app">
-    <aside class="sidebar">
+    <aside class="sidebar" aria-label="主导航">
       <div class="brand"><div class="brand-mark">N</div><div><div class="brand-name">第N人格</div><div class="brand-sub">THE NTH PERSONA</div></div></div>
-      <div><div class="nav-label">工作空间</div><div class="nav-item active"><span class="nav-icon">◈</span>人格控制台</div><div class="nav-item"><span class="nav-icon">▤</span>人格库 <span style="margin-left:auto;color:#858b97;font-size:10px">05</span></div><div class="nav-item"><span class="nav-icon">⌘</span>对话工作区</div></div>
-      <div class="side-bottom"><div class="server-card"><div class="server-head"><span class="dot" id="sideDot"></span><span id="sideServer">正在检测服务</span></div><div class="server-desc">本地人格状态由 FastAPI 管理。已启用 Codex Hook 时，后续提示会读取当前人格。</div></div><div class="version">LOCAL WORKSPACE · v0.3.1</div></div>
+      <nav><div class="nav-label">工作空间</div><div class="nav-item active"><span class="nav-icon">◈</span>人格控制台</div><div class="nav-item"><span class="nav-icon">▤</span>人格库 <span class="nav-count">05</span></div><div class="nav-item"><span class="nav-icon">⌘</span>对话工作区</div></nav>
+      <div class="side-bottom"><div class="server-card"><div class="server-head"><span class="dot" id="sideDot"></span><span id="sideServer">正在检测服务</span></div><div class="server-desc">统一人格核心由本地脚本服务管理；UI 负责切换和调用各平台适配器。</div></div><div class="version">LOCAL WORKSPACE · v0.4.2</div></div>
     </aside>
-    <main>
-      <div class="topbar"><div class="crumb">工作空间&nbsp; / &nbsp;人格控制台</div><div class="top-actions"><span class="status"><span class="dot" id="apiDot"></span><span id="apiStatus">检测连接中</span></span><button class="btn" onclick="document.getElementById('settings').scrollIntoView({behavior:'smooth'});document.getElementById('settings').open=true">⚙ API 设置</button></div></div>
-      <section class="hero"><div><div class="eyebrow">PERSONA MANAGEMENT SYSTEM</div><h1>让每一次对话<br>都有明确的角色。</h1><p>选择一个人格，立即切换当前对话的思考方式与表达边界。<br>同一时刻，仅有一个人格生效。</p></div><div class="current-chip"><small>当前生效人格</small><strong id="currentName">冷酷执行官</strong></div></section>
-      <section><div class="section-head"><h2>人格库</h2><span>点击卡片即可切换 · 5 个已配置人格</span></div><div class="persona-grid" id="personaGrid"></div></section>
-      <section class="workspace">
-        <div class="chat-panel"><div class="panel-head"><div><div class="panel-title">对话工作区</div><div class="panel-sub">当前人格：<span id="chatPersona">冷酷执行官</span></div></div><button class="btn" id="clearBtn" onclick="clearChat()">清空对话</button></div><div class="messages" id="messages"><div class="welcome" id="welcome"><div class="welcome-icon">✳</div><h3>准备好开始对话</h3><p>当前人格已就位。输入你的问题，AI 将按照已启用的人格规则回应。</p></div></div><div class="composer"><input id="input" placeholder="输入消息，Enter 发送…" autocomplete="off" /><button class="btn primary" id="sendBtn" onclick="send()">发送 ↗</button></div></div>
-        <aside class="info-panel"><div class="info-title">人格状态</div><div class="active-persona"><div class="active-top"><span class="active-emoji" id="activeEmoji">❄️</span><div><div class="active-name" id="activeName">冷酷执行官</div><div class="active-id" id="activeId">cold-executor</div></div></div><div class="active-note" id="activeDesc">只关注结果、行动与截止时间。拒绝空泛安慰，推动事情落地。</div></div><div><div class="mini-label">生效规则</div><div class="info-value">完整替换上一人格规则<br>不会叠加其他人格的语气与结构</div></div><div class="info-line"></div><div><div class="mini-label">本地状态</div><div class="info-value" id="stateText">等待后端同步</div></div><button class="setting-link" onclick="document.getElementById('settings').open=true;document.getElementById('settings').scrollIntoView({behavior:'smooth'})">配置模型 API →</button></aside>
+    <main id="main">
+      <div class="topbar"><div class="crumb">工作空间&nbsp; / &nbsp;人格控制台</div><div class="top-actions"><span class="status"><span class="dot" id="apiDot"></span><span id="apiStatus">检测连接中</span></span><button type="button" class="btn" onclick="document.getElementById('settings').scrollIntoView({behavior:'smooth'});document.getElementById('settings').open=true">⚙ API 设置</button></div></div>
+      <section class="hero" aria-labelledby="page-title"><div><div class="eyebrow">PERSONA MANAGEMENT SYSTEM</div><h1 id="page-title">让每一次对话<br>都有明确的角色。</h1><p>选择一个人格，立即切换当前对话的思考方式与表达边界。<br>同一时刻，仅有一个人格生效。</p></div><div class="current-chip" aria-live="polite"><small>当前生效人格</small><strong id="currentName">冷酷执行官</strong></div></section>
+      <section class="control-panel" aria-label="人格启用范围">
+        <div class="control-group"><span class="control-label">启用状态</span><label class="toggle-row" for="personaEnabled"><input id="personaEnabled" type="checkbox" checked /><span id="enabledText">影响所有接入</span></label></div>
+        <fieldset class="control-group" style="border:0;padding:0;margin:0"><legend class="control-label">生效范围</legend><div class="scope-options"><label><input id="scopeConversation" name="personaScope" type="radio" value="conversation" /><span>当前页面</span></label><label><input id="scopeProvider" name="personaScope" type="radio" value="provider" /><span>当前 AI</span></label><label><input id="scopeGlobal" name="personaScope" type="radio" value="global" checked /><span>所有接入</span></label></div></fieldset>
+        <div class="control-group"><label class="control-label" for="providerSelect">当前 AI</label><select class="provider-select" id="providerSelect"><option value="codex">Codex</option><option value="claude">Claude</option><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="doubao">豆包</option></select></div>
       </section>
-      <details class="settings" id="settings"><summary>模型 API 配置 <span style="color:#858b97;font-size:10px;font-weight:400;margin-left:8px">OpenAI 兼容接口</span></summary><div class="settings-body"><div class="field"><label for="apiBase">API Base</label><input id="apiBase" placeholder="https://api.openai.com/v1" /></div><div class="field"><label for="apiKey">API Key</label><input id="apiKey" type="password" placeholder="输入你的 API Key" /></div><div class="field"><label for="apiModel">模型名称</label><input id="apiModel" placeholder="gpt-4o-mini" /></div><div class="settings-foot"><div class="hint">API Key 保存在当前浏览器 localStorage，不会写入项目文件；共享设备请勿保存 Key。远程 API 请使用 HTTPS，HTTP 仅建议用于本机或可信网络内的本地接口。使用对话功能需要启动本地后端。</div><button class="btn primary" onclick="saveSettings();showToast('设置已保存','配置仅保存在当前浏览器')">保存设置</button></div></div></details>
+      <section aria-labelledby="persona-heading"><div class="section-head"><h2 id="persona-heading">人格库</h2><span>点击卡片即可切换 · <span id="personaCount">0</span> 个已配置人格</span></div><div class="persona-grid" id="personaGrid"></div></section>
+      <section class="workspace" aria-label="对话与人格状态">
+        <div class="chat-panel"><div class="panel-head"><div><div class="panel-title">对话工作区</div><div class="panel-sub">当前人格：<span id="chatPersona">冷酷执行官</span></div></div><button type="button" class="btn" id="clearBtn" onclick="clearChat()">清空对话</button></div><div class="messages" id="messages" aria-live="polite"><div class="welcome" id="welcome"><div class="welcome-icon">✳</div><h3>准备好开始对话</h3><p>当前人格已就位。输入你的问题，AI 将按照已启用的人格规则回应。</p></div></div><div class="composer"><label class="sr-only" for="input">输入消息</label><input id="input" placeholder="输入消息，Enter 发送…" autocomplete="off" /><button type="button" class="btn primary" id="sendBtn" onclick="send()">发送 ↗</button></div></div>
+        <aside class="info-panel" aria-labelledby="persona-status-title"><div class="info-head"><div class="info-title" id="persona-status-title">人格状态</div><button type="button" class="rule-tip" id="ruleTip" aria-label="查看人格生效规则" title="人格生效规则" data-tooltip="切换后仅使用当前人格规则；旧聊天记录保留，但旧人格助手回复不会进入新请求。">ⓘ</button></div><div class="active-persona"><div class="active-top"><span class="active-emoji" id="activeEmoji">❄️</span><div><div class="active-name" id="activeName">冷酷执行官</div><div class="active-id" id="activeId">cold-executor</div></div></div><div class="active-note" id="activeDesc">只关注结果、行动与截止时间。拒绝空泛安慰，推动事情落地。</div></div><div><div class="mini-label">本地状态</div><div class="info-value" id="stateText">等待后端同步</div></div><div><div class="mini-label">Codex 注入</div><div class="info-value" id="codexState">Hook 尚未读取</div></div><button type="button" class="setting-link" onclick="document.getElementById('settings').open=true;document.getElementById('settings').scrollIntoView({behavior:'smooth'})">配置模型 API →</button></aside>
+      </section>
+      <details class="settings" id="settings"><summary>模型 API 配置 <span class="summary-meta" id="providerMeta">按当前 AI 配置</span></summary><form class="settings-body" onsubmit="return false"><div class="field"><label for="apiBase">API Base</label><input id="apiBase" placeholder="API Base" /></div><div class="field"><label for="apiKey">API Key</label><input id="apiKey" type="password" autocomplete="off" placeholder="输入你的 API Key" /></div><div class="field"><label for="apiModel">模型或 Endpoint ID</label><input id="apiModel" placeholder="模型名称" /></div><div class="settings-foot"><div class="hint">配置按 AI 分开保存在当前浏览器 localStorage，不写入项目文件。Codex 使用本地 Hook，不需要在这里填写模型 API。</div><button type="button" class="btn primary" onclick="saveSettings();showToast('设置已保存','仅保存在当前浏览器')">保存设置</button></div></form></details>
+      <details class="settings" id="personaCreator"><summary>创建人格 <span class="summary-meta">从统一模板生成</span></summary><form class="settings-body" id="personaCreateForm"><div class="field"><label for="newPersonaId">人格 ID</label><input id="newPersonaId" required pattern="[a-z0-9][a-z0-9-]{0,46}[a-z0-9]" placeholder="clear-teacher" /></div><div class="field"><label for="newPersonaName">中文名</label><input id="newPersonaName" required maxlength="40" placeholder="清晰教练" /></div><div class="field"><label for="newPersonaSummary">一句话简介</label><input id="newPersonaSummary" required maxlength="120" placeholder="先澄清，再行动" /></div><div class="field wide"><label for="newPersonaRules">人格规则</label><textarea id="newPersonaRules" required maxlength="12000" placeholder="写清楚判断方式、必须遵守、禁止事项和输出结构。"></textarea></div><div class="settings-foot"><div class="hint">创建后立即加入人格库，并可用于所有已接入 AI。人格规则仍受各平台更高层指令和安全边界约束。</div><button type="submit" class="btn primary">创建人格</button></div></form></details>
       <div class="footer">THE NTH PERSONA · PRIVATE LOCAL WORKSPACE · 2026</div>
     </main>
   </div>
 <script>
   const API_BASE='';
-  const personas=[
-    {id:'cold-executor',name:'冷酷执行官',emoji:'❄️',desc:'只谈结果与截止时间',detail:'只关注结果、行动与截止时间。拒绝空泛安慰，推动事情落地。'},
-    {id:'sharp-advisor',name:'现实毒舌顾问',emoji:'🗡️',desc:'识别借口与自我欺骗',detail:'拆解自我合理化与回避行为，指出现实问题，并给出真正可选的行动方向。'},
-    {id:'cyber-tcm',name:'赛博老中医',emoji:'🌿',desc:'用隐喻理解状态与节奏',detail:'以传统术语作现代生活隐喻，帮助识别状态，并给出可执行的行为药方。'},
-    {id:'minimalist',name:'极简主义者',emoji:'◼️',desc:'删减选项，只留关键动作',detail:'减少不必要的选项、步骤与文字，只保留当前最必要的行动。'},
-    {id:'xin-da-ya',name:'信达雅',emoji:'📜',desc:'先求真，再求通，最后得体',detail:'独立执行完整的「先信→再达→后雅」检查流程，确保准确、清晰与得体。'}
-  ];
-  let currentId='cold-executor',chatHistory=[],toastTimer=null,personaVersion=null,switching=false,sending=false;
+  let providerDefaults={
+    codex:{base:'',model:'',label:'Codex Hook'},
+    claude:{base:'',model:'',label:'Claude Messages'},
+    gemini:{base:'',model:'',label:'Gemini generateContent'},
+    deepseek:{base:'',model:'',label:'DeepSeek Chat'},
+    doubao:{base:'',model:'',label:'豆包 · 火山方舟'}
+  };
+  let personas=[],currentId='',chatHistory=[],toastTimer=null,personaVersion=null,switching=false,sending=false;
+  let activation={enabled:true,scope:'global',provider:null,conversation_id:null};
   const $=id=>document.getElementById(id);
-  function currentPersona(){return personas.find(p=>p.id===currentId)||personas[0]}
-  function renderPersonas(){const grid=$('personaGrid');grid.innerHTML='';personas.forEach(p=>{const b=document.createElement('button');b.type='button';b.disabled=switching||sending;b.className='persona'+(p.id===currentId?' selected':'');b.setAttribute('aria-pressed',p.id===currentId?'true':'false');b.innerHTML=`<span class="p-emoji">${p.emoji}</span><h3>${p.name}</h3><p>${p.desc}</p><span class="p-id">${p.id}</span>`;b.addEventListener('click',()=>switchPersona(p.id));grid.appendChild(b)})}
-  function renderCurrent(){const p=currentPersona();$('currentName').textContent=p.name;$('chatPersona').textContent=p.name;$('activeName').textContent=p.name;$('activeEmoji').textContent=p.emoji;$('activeId').textContent=p.id;$('activeDesc').textContent=p.detail;renderPersonas()}
+  const conversationId=sessionStorage.getItem('nth_conversation_id')||(crypto.randomUUID?crypto.randomUUID():'web-'+Date.now());
+  sessionStorage.setItem('nth_conversation_id',conversationId);
+  function currentProvider(){return $('providerSelect').value}
+  function currentPersona(){return personas.find(p=>p.id===currentId)||personas[0]||{id:'',name:'未加载',emoji:'◇',summary:'',description:'等待本地服务'}}
+  function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+  function activationLabel(enabled,scope){if(!enabled||scope==='off')return '人格已关闭';if(scope==='conversation')return '影响当前页面';if(scope==='provider')return '影响当前 AI';return '影响所有接入'}
+  async function loadProviderDefaults(){const res=await fetch('/provider-defaults');if(!res.ok)throw new Error('平台默认配置加载失败');const data=await res.json();providerDefaults={...providerDefaults,...(data.providers||{})}}
+  async function loadPersonas(){const res=await fetch('/personas');if(!res.ok)throw new Error('人格库加载失败');const data=await res.json();personas=data.personas||[];$('personaCount').textContent=String(personas.length);renderPersonas()}
+  function renderPersonas(){const grid=$('personaGrid');grid.innerHTML='';personas.forEach(p=>{const b=document.createElement('button');b.type='button';b.disabled=switching||sending;b.className='persona'+(p.id===currentId?' selected':'');b.setAttribute('aria-pressed',p.id===currentId?'true':'false');b.innerHTML=`<span class="p-emoji">${escapeHtml(p.emoji)}</span><h3>${escapeHtml(p.name)}</h3><p>${escapeHtml(p.summary)}</p><span class="p-id">${escapeHtml(p.id)}</span>`;b.addEventListener('click',()=>switchPersona(p.id));grid.appendChild(b)})}
+  function renderCurrent(){const p=currentPersona();$('currentName').textContent=p.name;$('chatPersona').textContent=p.name;$('activeName').textContent=p.name;$('activeEmoji').textContent=p.emoji;$('activeId').textContent=p.id;$('activeDesc').textContent=p.description;renderPersonas()}
+  function renderActivation(){const enabled=Boolean(activation.enabled)&&activation.scope!=='off',codexUnavailable=currentProvider()==='codex';$('personaEnabled').checked=enabled;const scope=enabled?activation.scope:'global';$('enabledText').textContent=activationLabel(enabled,scope);const radio=document.querySelector(`input[name="personaScope"][value="${scope}"]`);if(radio)radio.checked=true;document.querySelectorAll('input[name="personaScope"]').forEach(x=>x.disabled=!enabled);$('scopeConversation').disabled=!enabled||codexUnavailable;$('scopeConversation').parentElement.title=codexUnavailable?'Codex 暂不支持可靠锁定单个聊天':''}
   function showToast(main,sub=''){ $('toastMain').textContent=main;$('toastSub').textContent=sub;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2400)}
-  function setServerStatus(online){$('apiStatus').textContent=online?'本地服务已连接':'本地服务未连接';$('apiDot').className='dot'+(online?' online':'');$('sideDot').className='dot'+(online?' online':'');$('sideServer').textContent=online?'服务运行中':'等待启动服务';$('stateText').textContent=online?'current.json 已连接 · 页面与已启用的 Codex Hook 可读取':'当前为离线预览 · 启动 open.sh 后可保存切换状态'}
+  function setServerStatus(online){$('apiStatus').textContent=online?'本地服务已连接':'本地服务未连接';$('apiDot').className='dot'+(online?' online':'');$('sideDot').className='dot'+(online?' online':'');$('sideServer').textContent=online?'服务运行中':'等待启动服务';$('stateText').textContent=online?`已连接 · ${activation.enabled?'作用域：'+activation.scope:'人格已关闭'}`:'当前为离线预览'}
+  async function refreshIntegrationStatus(){if(location.protocol==='file:')return;try{const res=await fetch('/integration/status');if(!res.ok)return;const data=await res.json(),read=data.codex&&data.codex.last_read_at;activation=data.current;personaVersion=data.current.version;renderActivation();setServerStatus(true);if(read){const time=new Date(read).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});$('codexState').textContent=data.codex.active?'Hook 已注入当前人格 · '+time:'Hook 已读取，但当前作用域不匹配 · '+time}else{$('codexState').textContent='Hook 尚未读取当前服务'}}catch(e){}}
   function addMsg(role,text){$('welcome')?.remove();const d=document.createElement('div');d.className='msg '+role;d.textContent=text;$('messages').appendChild(d);$('messages').scrollTop=$('messages').scrollHeight}
-  async function switchPersona(id){const p=personas.find(x=>x.id===id);if(!p||switching||sending||id===currentId)return;switching=true;renderPersonas();showToast('正在切换人格','等待本地状态确认…');try{if(location.protocol==='file:')throw new Error('file-preview');const res=await fetch(API_BASE+'/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({persona:id,user_id:'default'})});const data=await res.json();if(!res.ok)throw new Error(data.detail||'同步失败');currentId=data.current.persona;personaVersion=data.current.version;setServerStatus(true);renderCurrent();addMsg('sys','已切换至【'+p.name+'】');showToast('已切换至【'+p.name+'】','已保存 · Codex 后续提示将读取（需启用 Hook）')}catch(e){if(location.protocol==='file:'){currentId=id;personaVersion=null;setServerStatus(false);renderCurrent();addMsg('sys','已切换至【'+p.name+'】（离线预览，未写入本地状态）');showToast('当前为离线预览','启动本地服务后才能保存人格切换')}else{showToast('切换失败',e.message||'本地状态未确认，当前人格保持不变')}}finally{switching=false;renderPersonas()}}
+  async function switchPersona(id){const p=personas.find(x=>x.id===id);if(!p||switching||sending||id===currentId)return;switching=true;renderPersonas();showToast('正在切换人格','等待本地状态确认…');try{const res=await fetch(API_BASE+'/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({persona:id,user_id:'default'})});const data=await res.json();if(!res.ok)throw new Error(data.detail||'同步失败');currentId=data.current.persona;personaVersion=data.current.version;activation=data.current;setServerStatus(true);renderCurrent();renderActivation();addMsg('sys','已切换至【'+p.name+'】· 聊天记录保留，旧人格助手回复不再进入新请求');showToast('已切换至【'+p.name+'】',activation.enabled?'按当前作用域生效':'人格当前为关闭状态')}catch(e){showToast('切换失败',e.message||'当前人格保持不变')}finally{switching=false;renderPersonas()}}
+  async function saveActivation(){const enabled=$('personaEnabled').checked,scope=document.querySelector('input[name="personaScope"]:checked')?.value||'global',provider=currentProvider();const payload={enabled,scope:enabled?scope:'off',provider:enabled&&scope!=='global'?provider:null,conversation_id:enabled&&scope==='conversation'?conversationId:null};try{const res=await fetch('/enable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),data=await res.json();if(!res.ok)throw new Error(data.detail?.[0]?.msg||data.detail||'启用状态保存失败');activation=data.current;personaVersion=data.current.version;renderActivation();setServerStatus(true);showToast(activationLabel(enabled,scope),enabled?(scope==='conversation'?'仅影响当前页面':scope==='provider'?'仅影响 '+providerDefaults[provider].label:'影响所有已接入 AI'):'后续请求不注入人格')}catch(e){renderActivation();showToast('设置失败',e.message)}}
   function clearChat(){if(sending){showToast('暂不能清空','请等待当前回复完成');return}chatHistory=[];$('messages').innerHTML='';addMsg('sys','对话已清空 · 当前仍是【'+currentPersona().name+'】')}
-  function loadSettings(){$('apiBase').value=localStorage.getItem('nth_api_base')||'';$('apiKey').value=localStorage.getItem('nth_api_key')||'';$('apiModel').value=localStorage.getItem('nth_api_model')||'gpt-4o-mini'}
-  function saveSettings(){localStorage.setItem('nth_api_base',$('apiBase').value.trim());localStorage.setItem('nth_api_key',$('apiKey').value.trim());localStorage.setItem('nth_api_model',$('apiModel').value.trim()||'gpt-4o-mini')}
-  async function send(){const input=$('input'),message=input.value.trim();if(!message||sending||switching)return;if(location.protocol==='file:'){addMsg('bot','当前是离线预览。请运行 open.sh 并通过 http://127.0.0.1:8000 使用对话功能。');return}saveSettings();input.value='';addMsg('user',message);const history=chatHistory.slice();chatHistory.push({role:'user',content:message});sending=true;$('sendBtn').disabled=true;$('clearBtn').disabled=true;$('sendBtn').textContent='发送中…';renderPersonas();try{const res=await fetch(API_BASE+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,history,api_key:localStorage.getItem('nth_api_key')||'',api_base:localStorage.getItem('nth_api_base')||'',model:localStorage.getItem('nth_api_model')||'gpt-4o-mini',persona_version:personaVersion})});const data=await res.json();if(!res.ok)throw new Error(data.detail||'请求失败');if(data.persona!==currentId||data.persona_version!==personaVersion)throw new Error('回复期间人格状态发生变化，请核对当前人格后重试');addMsg('bot',data.reply);chatHistory.push({role:'assistant',content:data.reply})}catch(e){if(chatHistory.length&&chatHistory[chatHistory.length-1].role==='user'&&chatHistory[chatHistory.length-1].content===message)chatHistory.pop();addMsg('bot','暂时无法完成请求：'+e.message+'\n请确认服务、当前人格和 API 设置。')}finally{sending=false;$('sendBtn').disabled=false;$('clearBtn').disabled=false;$('sendBtn').textContent='发送 ↗';renderPersonas();input.focus()}}
+  function settingsKey(name){return `nth_${currentProvider()}_${name}`}
+  function loadSettings(){const p=currentProvider(),defaults=providerDefaults[p];$('apiBase').value=localStorage.getItem(settingsKey('api_base'))??defaults.base;$('apiKey').value=localStorage.getItem(settingsKey('api_key'))||'';$('apiModel').value=localStorage.getItem(settingsKey('api_model'))??defaults.model;$('providerMeta').textContent=defaults.label;const disabled=p==='codex';$('apiBase').disabled=disabled;$('apiKey').disabled=disabled;$('apiModel').disabled=disabled}
+  function saveSettings(){localStorage.setItem(settingsKey('api_base'),$('apiBase').value.trim());localStorage.setItem(settingsKey('api_key'),$('apiKey').value.trim());localStorage.setItem(settingsKey('api_model'),$('apiModel').value.trim())}
+  async function send(){const input=$('input'),message=input.value.trim(),provider=currentProvider();if(!message||sending||switching)return;if(provider==='codex'){addMsg('sys','Codex 由桌面端 Hook 注入人格；请在 Codex 对话中直接发送消息。');return}saveSettings();input.value='';addMsg('user',message);const history=chatHistory.slice();chatHistory.push({role:'user',content:message});sending=true;$('sendBtn').disabled=true;$('clearBtn').disabled=true;$('sendBtn').textContent='发送中…';renderPersonas();try{const res=await fetch(API_BASE+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,conversation_id:conversationId,message,history,api_key:localStorage.getItem(settingsKey('api_key'))||'',api_base:localStorage.getItem(settingsKey('api_base'))||'',model:localStorage.getItem(settingsKey('api_model'))||'',persona_version:personaVersion})});const data=await res.json();if(!res.ok)throw new Error(typeof data.detail==='string'?data.detail:'请求失败');if(data.persona!==currentId||data.persona_version!==personaVersion)throw new Error('回复期间人格状态发生变化，请重试');addMsg('bot',data.reply);chatHistory.push({role:'assistant',content:data.reply,persona_version:data.persona_version})}catch(e){if(chatHistory.at(-1)?.role==='user'&&chatHistory.at(-1)?.content===message)chatHistory.pop();addMsg('bot','暂时无法完成请求：'+e.message+'\n请确认当前 AI 的 API 设置。')}finally{sending=false;$('sendBtn').disabled=false;$('clearBtn').disabled=false;$('sendBtn').textContent='发送 ↗';renderPersonas();input.focus()}}
+  async function createPersona(event){event.preventDefault();const payload={id:$('newPersonaId').value.trim(),name:$('newPersonaName').value.trim(),summary:$('newPersonaSummary').value.trim(),description:$('newPersonaSummary').value.trim(),rules:$('newPersonaRules').value.trim()};try{const res=await fetch('/personas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),data=await res.json();if(!res.ok)throw new Error(typeof data.detail==='string'?data.detail:'人格格式不正确');await loadPersonas();event.target.reset();showToast('已创建【'+data.name+'】','现在可以切换并调用')}catch(e){showToast('创建失败',e.message)}}
   $('input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-  async function init(){loadSettings();renderCurrent();if(location.protocol==='file:'){setServerStatus(false);return}try{const res=await fetch('/current');if(!res.ok)throw new Error('offline');const data=await res.json();if(personas.some(p=>p.id===data.persona)){currentId=data.persona;personaVersion=Number(data.version)||null;renderCurrent()}setServerStatus(true);showToast('工作空间已就绪','已读取本地当前人格')}catch(e){setServerStatus(false)}}
+  $('personaEnabled').addEventListener('change',saveActivation);
+  document.querySelectorAll('input[name="personaScope"]').forEach(x=>x.addEventListener('change',saveActivation));
+  $('providerSelect').addEventListener('change',async()=>{loadSettings();if(currentProvider()==='codex'&&activation.enabled&&activation.scope==='conversation'){$('personaEnabled').checked=false;await saveActivation();showToast('Codex 当前页面不可用','已安全关闭，请重新选择“当前 AI”或“所有接入”');return}renderActivation();if(activation.enabled&&['provider','conversation'].includes(activation.scope))saveActivation()});
+  $('personaCreateForm').addEventListener('submit',createPersona);
+  async function init(){if(location.protocol==='file:'){setServerStatus(false);return}try{const [stateRes]=await Promise.all([fetch('/current'),loadPersonas(),loadProviderDefaults()]);if(!stateRes.ok)throw new Error('offline');const data=await stateRes.json();currentId=data.persona;personaVersion=Number(data.version)||null;activation=data;if(data.provider)$('providerSelect').value=data.provider;renderCurrent();renderActivation();loadSettings();setServerStatus(true);await refreshIntegrationStatus();setInterval(refreshIntegrationStatus,5000);showToast('工作空间已就绪','人格核心和平台适配器已连接')}catch(e){setServerStatus(false);showToast('本地服务未连接','请先运行启动脚本')}}
   init();
 </script>
 </body>

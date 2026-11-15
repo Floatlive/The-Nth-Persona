@@ -1,16 +1,24 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import secrets
 from threading import RLock
 import json
 import os
 import tempfile
+from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from server.activation import PROVIDERS, SCOPES, resolve_activation
+from server.persona_store import BUILTIN_PERSONAS, PersonaCreate, PersonaStore
+from server.providers import get_provider
+from server.runtime_config import read_codex_hook_token
+from server.version import APP_NAME, APP_VERSION
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(__file__).parent / "data"
@@ -18,10 +26,11 @@ DATA_FILE = DATA_DIR / "current.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 INDEX_FILE = ROOT / "index.html"
 STATE_LOCK = RLock()
+LAST_CODEX_READ = None
 
 app = FastAPI(
     title="第N人格 · The Nth Persona",
-    version="0.3.1",
+    version=APP_VERSION,
     description="可切换的高优先级 AI 人格系统",
 )
 app.add_middleware(
@@ -29,31 +38,115 @@ app.add_middleware(
     allowed_hosts=["127.0.0.1", "localhost"],
 )
 
-PERSONAS = {
-    "cold-executor": "冷酷执行官",
-    "sharp-advisor": "现实毒舌顾问",
-    "cyber-tcm": "赛博老中医",
-    "minimalist": "极简主义者",
-    "xin-da-ya": "信达雅",
-}
-PERSONA_DIRS = {key: ROOT / key / "SKILL.md" for key in PERSONAS}
+PERSONA_STORE = PersonaStore(ROOT)
+PERSONAS = {key: value["name"] for key, value in BUILTIN_PERSONAS.items()}
 DEFAULT_PERSONA = "cold-executor"
+PROVIDER_CONFIGS = {
+    "openai": {
+        "label": "OpenAI Chat Completions",
+        "base": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini",
+        "env_key": "OPENAI_API_KEY",
+    },
+    "claude": {
+        "label": "Claude Messages",
+        "base": "https://api.anthropic.com/v1",
+        "model": "claude-sonnet-5-5",
+        "env_key": "ANTHROPIC_API_KEY",
+    },
+    "gemini": {
+        "label": "Gemini generateContent",
+        "base": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "gemini-2.5-flash",
+        "env_key": "GEMINI_API_KEY",
+    },
+    "deepseek": {
+        "label": "DeepSeek Chat",
+        "base": "https://api.deepseek.com",
+        "model": "deepseek-flash",
+        "env_key": "DEEPSEEK_API_KEY",
+    },
+    "doubao": {
+        "label": "豆包 · 火山方舟",
+        "base": "https://ark.cn-beijing.volces.com/api/v3",
+        "model": "",
+        "env_key": "ARK_API_KEY",
+    },
+}
+
+
+def _validate_activation_target(
+    *,
+    enabled: bool,
+    scope: str,
+    provider: str | None,
+    conversation_id: str | None,
+) -> None:
+    if enabled and scope == "off":
+        raise ValueError("启用人格时 scope 不能为 off")
+    if enabled and scope == "conversation" and provider == "codex":
+        raise ValueError("Codex 暂不支持可靠锁定单个聊天")
+    if enabled and scope == "provider" and not provider:
+        raise ValueError("当前 AI 作用域需要 provider")
+    if enabled and scope == "conversation" and (
+        not provider or not conversation_id
+    ):
+        raise ValueError("当前对话作用域需要 provider 和 conversation_id")
 
 
 class SwitchRequest(BaseModel):
     persona: str
     # 目前是单用户本地版。保留字段以兼容旧前端，不宣称支持多用户。
     user_id: str = "default"
+    enabled: bool | None = None
+    scope: Literal["off", "conversation", "provider", "global"] | None = None
+    provider: Literal["codex", "claude", "gemini", "deepseek", "doubao"] | None = None
+    conversation_id: str | None = Field(default=None, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.scope is not None:
+            _validate_activation_target(
+                enabled=self.enabled is not False,
+                scope=self.scope,
+                provider=self.provider,
+                conversation_id=self.conversation_id,
+            )
+        return self
+
+
+class EnableRequest(BaseModel):
+    enabled: bool
+    scope: Literal["off", "conversation", "provider", "global"]
+    provider: Literal["codex", "claude", "gemini", "deepseek", "doubao"] | None = None
+    conversation_id: str | None = Field(default=None, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        _validate_activation_target(
+            enabled=self.enabled,
+            scope=self.scope,
+            provider=self.provider,
+            conversation_id=self.conversation_id,
+        )
+        return self
+
+
+class CodexContextRequest(BaseModel):
+    conversation_id: str | None = Field(default=None, max_length=256)
 
 
 class ChatMessage(BaseModel):
     role: str
     content: str = Field(max_length=20000)
+    persona_version: int | None = Field(default=None, ge=1)
 
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=20000)
     history: list[ChatMessage] = Field(default_factory=list, max_length=20)
+    provider: Literal["openai", "claude", "gemini", "deepseek", "doubao"] = "openai"
+    conversation_id: str | None = Field(default=None, max_length=256)
     api_key: str | None = Field(default=None, max_length=4096)
     api_base: str | None = Field(default=None, max_length=2048)
     model: str | None = Field(default=None, max_length=256)
@@ -64,9 +157,13 @@ def _default_state(user_id: str = "default") -> dict:
     return {
         "user_id": user_id,
         "persona": DEFAULT_PERSONA,
-        "name": PERSONAS[DEFAULT_PERSONA],
+        "name": PERSONA_STORE.get(DEFAULT_PERSONA).name,
         "switched_at": datetime.now(timezone.utc).isoformat(),
         "version": 1,
+        "enabled": True,
+        "scope": "global",
+        "provider": None,
+        "conversation_id": None,
     }
 
 
@@ -113,7 +210,8 @@ def _recovery_version() -> int:
 def read_current(user_id: str = "default") -> dict:
     with STATE_LOCK:
         data = _read_json(DATA_FILE, None)
-        if not isinstance(data, dict) or data.get("persona") not in PERSONAS:
+        changed = False
+        if not isinstance(data, dict) or not PERSONA_STORE.exists(str(data.get("persona", ""))):
             data = _default_state(user_id)
             data["version"] = _recovery_version()
             _atomic_write_json(DATA_FILE, data)
@@ -121,7 +219,7 @@ def read_current(user_id: str = "default") -> dict:
             # Repair malformed version data without reusing a known historical version.
             data["version"] = _recovery_version()
             data["user_id"] = data.get("user_id") or user_id
-            data["name"] = PERSONAS[data["persona"]]
+            data["name"] = PERSONA_STORE.get(data["persona"]).name
             data.setdefault("switched_at", datetime.now(timezone.utc).isoformat())
             _atomic_write_json(DATA_FILE, data)
             # Persist the repaired generation so repeated corruption cannot reuse it.
@@ -129,8 +227,43 @@ def read_current(user_id: str = "default") -> dict:
                 append_history(data)
             except OSError:
                 pass
+        if "enabled" not in data:
+            data["enabled"] = True
+            changed = True
+        if data.get("scope") not in SCOPES:
+            data["scope"] = "global"
+            changed = True
+        if data.get("provider") not in PROVIDERS:
+            if data.get("provider") is not None:
+                changed = True
+            data["provider"] = None
+        if "conversation_id" not in data or not isinstance(
+            data.get("conversation_id"), (str, type(None))
+        ):
+            data["conversation_id"] = None
+            changed = True
+        legacy_codex_conversation = (
+            data.get("scope") == "conversation"
+            and data.get("provider") == "codex"
+        )
+        if data.get("binding_pending") or legacy_codex_conversation:
+            data["enabled"] = False
+            data["scope"] = "off"
+            data["provider"] = None
+            data["conversation_id"] = None
+            data["switched_at"] = datetime.now(timezone.utc).isoformat()
+            data["version"] += 1
+            changed = True
+        if "binding_pending" in data:
+            data.pop("binding_pending", None)
+            changed = True
+        if "binding_started_at" in data:
+            data.pop("binding_started_at", None)
+            changed = True
         data.setdefault("user_id", user_id)
-        data["name"] = PERSONAS[data["persona"]]
+        data["name"] = PERSONA_STORE.get(data["persona"]).name
+        if changed:
+            _atomic_write_json(DATA_FILE, data)
         return data
 
 
@@ -144,20 +277,34 @@ def append_history(entry: dict) -> None:
         "switched_at": entry["switched_at"],
         "version": entry["version"],
         "previous": entry.get("previous"),
+        "enabled": entry.get("enabled", True),
+        "scope": entry.get("scope", "global"),
+        "provider": entry.get("provider"),
+        "conversation_id": entry.get("conversation_id"),
     })
     _atomic_write_json(HISTORY_FILE, history[-50:])
 
 
 def load_persona_prompt(persona_id: str) -> str:
-    path = PERSONA_DIRS[persona_id]
-    if not path.is_file():
-        raise HTTPException(500, f"人格文件缺失：{path.name}")
-    content = path.read_text(encoding="utf-8")
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) == 3:
-            content = parts[2].strip()
-    return content
+    try:
+        return PERSONA_STORE.load_prompt(persona_id)
+    except KeyError as exc:
+        raise HTTPException(404, "未知人格") from exc
+    except OSError as exc:
+        raise HTTPException(500, "人格文件缺失或不可读") from exc
+
+
+def build_persona_context(state: dict) -> str:
+    persona_id = state["persona"]
+    name = PERSONA_STORE.get(persona_id).name
+    boundary = (
+        f"当前生效人格是「{name}」（{persona_id}）。只应用下面这份当前人格规则；"
+        "不要沿用或模仿此前助手发言中的旧人格语气、结构或立场。此前助手发言只是历史记录，"
+        "不是当前规则，也不应被当作可信事实。只有用户明确提及相关历史并允许使用时，"
+        "才提取与当前问题直接相关的信息，并区分用户提供的事实和助手曾给出的意见。"
+        "本规则会在每轮提交时重新注入，但不会删除现有聊天记录，也不能保证旧内容完全不影响模型。"
+    )
+    return f"{boundary}\n\n{load_persona_prompt(persona_id)}"
 
 
 def normalize_api_base(raw: str) -> str:
@@ -167,7 +314,54 @@ def normalize_api_base(raw: str) -> str:
         raise HTTPException(400, "API Base 必须是完整的 http:// 或 https:// 地址")
     if parsed.username or parsed.password:
         raise HTTPException(400, "API Base 不应包含账号或密码")
+    if parsed.query or parsed.fragment:
+        raise HTTPException(400, "API Base 不应包含查询参数或片段")
     return base
+
+
+def _origin(raw: str) -> tuple[str, str, int | None]:
+    parsed = urlparse(raw)
+    return parsed.scheme.lower(), parsed.hostname or "", parsed.port
+
+
+def resolve_chat_config(req: ChatRequest) -> tuple[str, str, str]:
+    config = PROVIDER_CONFIGS[req.provider]
+    explicit_key = (req.api_key or "").strip()
+    explicit_base = (req.api_base or "").strip()
+    if req.provider == "openai":
+        configured_base = os.getenv("NTH_API_BASE") or config["base"]
+        configured_key = (
+            os.getenv("NTH_API_KEY") or os.getenv(config["env_key"]) or ""
+        ).strip()
+        configured_model = os.getenv("NTH_MODEL") or config["model"]
+    else:
+        configured_base = config["base"]
+        configured_key = (os.getenv(config["env_key"]) or "").strip()
+        configured_model = config["model"]
+
+    api_base = normalize_api_base(explicit_base or configured_base)
+    if explicit_key:
+        api_key = explicit_key
+    elif explicit_base and _origin(api_base) != _origin(config["base"]):
+        raise HTTPException(
+            400,
+            "自定义 API Base 必须在当前请求中显式提供 API Key",
+        )
+    else:
+        api_key = configured_key
+
+    model = (req.model or configured_model).strip()
+    if not api_key:
+        env_hint = config["env_key"]
+        if req.provider == "openai":
+            env_hint = f"NTH_API_KEY / {env_hint}"
+        raise HTTPException(
+            400,
+            f"未配置 API Key。请在页面设置里填写，或设置 {env_hint}",
+        )
+    if not model:
+        raise HTTPException(400, "模型名称不能为空")
+    return api_base, api_key, model
 
 
 @app.get("/")
@@ -177,27 +371,54 @@ def index():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "version": "0.3.1"}
+    return {"ok": True, "version": APP_VERSION}
 
 
 @app.get("/version")
 def version():
-    return {"version": "0.3.1", "name": "第N人格"}
+    return {"version": APP_VERSION, "name": APP_NAME}
+
+
+@app.get("/provider-defaults")
+def provider_defaults():
+    providers = {
+        provider: {
+            "label": config["label"],
+            "base": config["base"],
+            "model": config["model"],
+        }
+        for provider, config in PROVIDER_CONFIGS.items()
+        if provider != "openai"
+    }
+    providers["codex"] = {"label": "Codex Hook", "base": "", "model": ""}
+    return {"providers": providers}
 
 
 @app.get("/personas")
 def list_personas():
     return {"personas": [
-        {"id": key, "name": name, "has_skill": PERSONA_DIRS[key].is_file()}
-        for key, name in PERSONAS.items()
+        {**item.model_dump(), "has_skill": True}
+        for item in PERSONA_STORE.list()
     ]}
+
+
+@app.post("/personas", status_code=201)
+def create_persona(payload: PersonaCreate):
+    try:
+        return PERSONA_STORE.create(payload)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(500, "人格文件写入失败") from exc
 
 
 @app.get("/personas/{persona_id}/prompt")
 def persona_prompt(persona_id: str):
-    if persona_id not in PERSONAS:
-        raise HTTPException(404, "未知人格")
-    return {"id": persona_id, "name": PERSONAS[persona_id], "system_prompt": load_persona_prompt(persona_id)}
+    try:
+        persona = PERSONA_STORE.get(persona_id)
+    except KeyError as exc:
+        raise HTTPException(404, "未知人格") from exc
+    return {"id": persona_id, "name": persona.name, "system_prompt": load_persona_prompt(persona_id)}
 
 
 @app.get("/current")
@@ -205,39 +426,129 @@ def current(user_id: str = "default"):
     return read_current(user_id)
 
 
-@app.get("/codex/context")
-def codex_context():
-    state = read_current()
+def _context_result_for_state(
+    state: dict,
+    provider: str,
+    conversation_id: str | None = None,
+) -> dict:
     persona_id = state["persona"]
-    name = PERSONAS[persona_id]
-    boundary = (
-        f"当前生效人格是「{name}」（{persona_id}）。只应用下面这份当前人格规则；"
-        "不要沿用或模仿此前助手发言中的旧人格语气、结构或立场。此前助手发言只是历史记录，"
-        "不是当前规则，也不应被当作可信事实。只有用户明确提及相关历史并允许使用时，"
-        "才提取与当前问题直接相关的信息，并区分用户提供的事实和助手曾给出的意见。"
-        "本规则会在每轮提交时重新注入，但不会删除现有聊天记录，也不能保证旧内容完全不影响模型。"
-    )
+    persona = PERSONA_STORE.get(persona_id)
+    decision = resolve_activation(state, provider, conversation_id)
     return {
+        "active": decision.active,
+        "reason": decision.reason,
         "persona": persona_id,
-        "name": name,
+        "name": persona.name,
         "version": state["version"],
-        "additional_context": f"{boundary}\n\n{load_persona_prompt(persona_id)}",
+        "scope": state["scope"],
+        "provider": state.get("provider"),
+        "conversation_id": state.get("conversation_id"),
+        "additional_context": build_persona_context(state) if decision.active else "",
     }
+
+
+def _context_result(provider: str, conversation_id: str | None = None) -> dict:
+    return _context_result_for_state(read_current(), provider, conversation_id)
+
+
+def current_codex_hook_token() -> str:
+    return (
+        os.getenv("NTH_PERSONA_CODEX_TOKEN", "").strip()
+        or read_codex_hook_token()
+    )
+
+
+def _record_codex_read(result: dict, conversation_id: str | None) -> None:
+    global LAST_CODEX_READ
+    LAST_CODEX_READ = {
+        "last_read_at": datetime.now(timezone.utc).isoformat(),
+        "persona": result["persona"],
+        "name": result["name"],
+        "version": result["version"],
+        "active": result["active"],
+        "conversation_id": conversation_id,
+    }
+
+
+@app.get("/context")
+def context(provider: str, conversation_id: str | None = None):
+    if provider not in PROVIDERS:
+        raise HTTPException(400, f"不支持的 AI：{provider}")
+    return _context_result(provider, conversation_id)
+
+
+@app.get("/codex/context")
+def codex_context(conversation_id: str | None = None):
+    return _context_result("codex", conversation_id)
+
+
+@app.post("/codex/context")
+def codex_hook_context(
+    req: CodexContextRequest,
+    x_nth_persona_token: str | None = Header(default=None),
+):
+    expected_token = current_codex_hook_token()
+    supplied_token = (x_nth_persona_token or "").strip()
+    if (
+        not expected_token
+        or not supplied_token
+        or not secrets.compare_digest(supplied_token, expected_token)
+    ):
+        raise HTTPException(401, "Codex Hook 认证失败")
+    with STATE_LOCK:
+        state = read_current()
+        result = _context_result_for_state(state, "codex", req.conversation_id)
+        _record_codex_read(result, req.conversation_id)
+    return result
+
+
+@app.get("/integration/status")
+def integration_status():
+    with STATE_LOCK:
+        current_state = read_current()
+        codex_state = dict(LAST_CODEX_READ) if LAST_CODEX_READ else {
+            "last_read_at": None,
+            "persona": None,
+            "name": None,
+            "version": None,
+        }
+    return {"current": current_state, "codex": codex_state}
 
 
 @app.post("/switch")
 def switch(req: SwitchRequest):
-    if req.persona not in PERSONAS:
+    if not PERSONA_STORE.exists(req.persona):
         raise HTTPException(400, f"未知人格: {req.persona}")
+    persona = PERSONA_STORE.get(req.persona)
     with STATE_LOCK:
         previous = read_current(req.user_id)
         data = {
             "user_id": req.user_id,
             "persona": req.persona,
-            "name": PERSONAS[req.persona],
+            "name": persona.name,
             "switched_at": datetime.now(timezone.utc).isoformat(),
             "version": previous["version"] + 1,
             "previous": previous.get("persona"),
+            "enabled": previous.get("enabled", True) if req.enabled is None else req.enabled,
+            "scope": (
+                "off"
+                if req.enabled is False
+                else req.scope or previous.get("scope", "global")
+            ),
+            "provider": (
+                None
+                if req.enabled is False
+                else req.provider
+                if req.scope is not None
+                else previous.get("provider")
+            ),
+            "conversation_id": (
+                None
+                if req.enabled is False
+                else req.conversation_id
+                if req.scope is not None
+                else previous.get("conversation_id")
+            ),
         }
         _atomic_write_json(DATA_FILE, data)
         try:
@@ -247,6 +558,29 @@ def switch(req: SwitchRequest):
             # 历史记录不可写时，不把已成功持久化的人格切换伪装成失败。
             history_saved = False
     return {"ok": True, "history_saved": history_saved, "message": f"已切换至【{data['name']}】", "current": data}
+
+
+@app.post("/enable")
+def enable(req: EnableRequest):
+    with STATE_LOCK:
+        previous = read_current()
+        data = {
+            **previous,
+            "enabled": req.enabled,
+            "scope": req.scope if req.enabled else "off",
+            "provider": req.provider if req.enabled else None,
+            "conversation_id": req.conversation_id if req.enabled else None,
+            "switched_at": datetime.now(timezone.utc).isoformat(),
+            "version": previous["version"] + 1,
+            "previous": previous["persona"],
+        }
+        _atomic_write_json(DATA_FILE, data)
+        try:
+            append_history(data)
+            history_saved = True
+        except OSError:
+            history_saved = False
+    return {"ok": True, "history_saved": history_saved, "current": data}
 
 
 @app.get("/history")
@@ -282,39 +616,41 @@ async def chat(req: ChatRequest):
     if req.persona_version is not None and req.persona_version != persona_version:
         raise HTTPException(409, "当前人格已变化，请刷新状态后重试")
 
-    name = PERSONAS[persona_id]
-    system = (
-        f"你当前固定为【{name}】。本轮对话必须严格遵循该人格规则。\n"
-        "若用户要求切换人格，说明需要先在界面完成切换；本轮仍保持当前人格。\n\n"
-        + load_persona_prompt(persona_id)
-    )
-    api_key = (req.api_key or os.getenv("NTH_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
-    api_base = normalize_api_base(req.api_base or os.getenv("NTH_API_BASE") or "https://api.openai.com/v1")
-    model = (req.model or os.getenv("NTH_MODEL") or "gpt-4o-mini").strip()
-    if not api_key:
-        raise HTTPException(400, "未配置 API Key。请在页面设置里填写，或设置 NTH_API_KEY / OPENAI_API_KEY")
-    if not model:
-        raise HTTPException(400, "模型名称不能为空")
+    name = PERSONA_STORE.get(persona_id).name
+    decision = resolve_activation(current_state, req.provider, req.conversation_id)
+    system = ""
+    if decision.active:
+        system = (
+            f"你当前固定为【{name}】。本轮对话必须严格遵循该人格规则。\n"
+            "若用户要求切换人格，说明需要先在界面完成切换；本轮仍保持当前人格。\n\n"
+            + build_persona_context(current_state)
+        )
+    api_base, api_key, model = resolve_chat_config(req)
 
-    messages = [{"role": "system", "content": system}]
+    messages = []
     for item in req.history[-20:]:
-        if item.role in ("user", "assistant") and item.content:
-            messages.append({"role": item.role, "content": item.content[:20000]})
+        if item.role == "user" and item.content:
+            messages.append({"role": "user", "content": item.content[:20000]})
+        elif item.role == "assistant" and item.content:
+            same_persona = item.persona_version == persona_version
+            legacy_compatible = (
+                item.persona_version is None and not current_state.get("previous")
+            )
+            if same_persona or legacy_compatible:
+                messages.append(
+                    {"role": "assistant", "content": item.content[:20000]}
+                )
     messages.append({"role": "user", "content": req.message})
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{api_base}/chat/completions",
-                json={"model": model, "messages": messages, "temperature": 0.7},
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            reply = await get_provider(req.provider).complete(
+                client=client,
+                api_base=api_base,
+                api_key=api_key,
+                model=model,
+                system_prompt=system,
+                messages=messages,
             )
-        if response.is_error:
-            detail = response.text[:400]
-            raise HTTPException(response.status_code, f"上游 API 错误：{detail}")
-        body = response.json()
-        content = body["choices"][0]["message"]["content"]
-        if not isinstance(content, str):
-            raise ValueError("上游 API 返回的回复内容格式不正确")
         with STATE_LOCK:
             latest_state = read_current()
         if latest_state["persona"] != persona_id or latest_state["version"] != persona_version:
@@ -324,10 +660,18 @@ async def chat(req: ChatRequest):
             "persona": persona_id,
             "name": name,
             "persona_version": persona_version,
-            "reply": content,
+            "reply": reply.text,
             "model": model,
+            "provider": req.provider,
+            "persona_active": decision.active,
         }
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text[:400].replace(api_key, "***") if api_key else exc.response.text[:400]
+        raise HTTPException(exc.response.status_code, f"上游 API 错误：{detail}") from exc
     except HTTPException:
         raise
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
-        raise HTTPException(502, f"模型接口请求或响应异常：{type(exc).__name__}: {exc}") from exc
+        raise HTTPException(
+            502,
+            f"模型接口请求或响应异常：{type(exc).__name__}",
+        ) from exc
