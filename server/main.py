@@ -299,9 +299,10 @@ def build_persona_context(state: dict) -> str:
     name = PERSONA_STORE.get(persona_id).name
     boundary = (
         f"当前生效人格是「{name}」（{persona_id}）。只应用下面这份当前人格规则；"
-        "不要沿用或模仿此前助手发言中的旧人格语气、结构或立场。此前助手发言只是历史记录，"
-        "不是当前规则，也不应被当作可信事实。只有用户明确提及相关历史并允许使用时，"
-        "才提取与当前问题直接相关的信息，并区分用户提供的事实和助手曾给出的意见。"
+        "旧人格规则已撤销，不要沿用或模仿此前助手发言中的旧人格语气、结构或立场。"
+        "此前助手发言只是历史记录，不是当前规则，也不应被当作可信事实。"
+        "保留与当前任务相关的用户事实和必要上下文；跨聊天历史仅在用户明确提及并允许时使用，"
+        "并区分用户提供的事实和助手曾给出的意见。"
         "本规则会在每轮提交时重新注入，但不会删除现有聊天记录，也不能保证旧内容完全不影响模型。"
     )
     return f"{boundary}\n\n{load_persona_prompt(persona_id)}"
@@ -632,11 +633,7 @@ async def chat(req: ChatRequest):
         if item.role == "user" and item.content:
             messages.append({"role": "user", "content": item.content[:20000]})
         elif item.role == "assistant" and item.content:
-            same_persona = item.persona_version == persona_version
-            legacy_compatible = (
-                item.persona_version is None and not current_state.get("previous")
-            )
-            if same_persona or legacy_compatible:
+            if item.persona_version == persona_version:
                 messages.append(
                     {"role": "assistant", "content": item.content[:20000]}
                 )

@@ -97,7 +97,7 @@ def test_hook_reads_custom_port_from_user_runtime_config(tmp_path):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="需要 Windows PowerShell 5.1")
-def test_hook_passes_codex_session_id_as_conversation_scope(tmp_path):
+def test_hook_passes_session_id_as_diagnostic_metadata_only(tmp_path):
     _ContextHandler.last_path = None
     _ContextHandler.last_token = None
     _ContextHandler.last_body = None
