@@ -18,6 +18,7 @@ DATA_FILE = DATA_DIR / "current.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 INDEX_FILE = ROOT / "index.html"
 STATE_LOCK = RLock()
+LAST_CODEX_READ = None
 
 app = FastAPI(
     title="第N人格 · The Nth Persona",
@@ -160,6 +161,19 @@ def load_persona_prompt(persona_id: str) -> str:
     return content
 
 
+def build_persona_context(state: dict) -> str:
+    persona_id = state["persona"]
+    name = PERSONAS[persona_id]
+    boundary = (
+        f"当前生效人格是「{name}」（{persona_id}）。只应用下面这份当前人格规则；"
+        "不要沿用或模仿此前助手发言中的旧人格语气、结构或立场。此前助手发言只是历史记录，"
+        "不是当前规则，也不应被当作可信事实。只有用户明确提及相关历史并允许使用时，"
+        "才提取与当前问题直接相关的信息，并区分用户提供的事实和助手曾给出的意见。"
+        "本规则会在每轮提交时重新注入，但不会删除现有聊天记录，也不能保证旧内容完全不影响模型。"
+    )
+    return f"{boundary}\n\n{load_persona_prompt(persona_id)}"
+
+
 def normalize_api_base(raw: str) -> str:
     base = raw.strip().rstrip("/")
     parsed = urlparse(base)
@@ -207,22 +221,37 @@ def current(user_id: str = "default"):
 
 @app.get("/codex/context")
 def codex_context():
+    global LAST_CODEX_READ
     state = read_current()
     persona_id = state["persona"]
     name = PERSONAS[persona_id]
-    boundary = (
-        f"当前生效人格是「{name}」（{persona_id}）。只应用下面这份当前人格规则；"
-        "不要沿用或模仿此前助手发言中的旧人格语气、结构或立场。此前助手发言只是历史记录，"
-        "不是当前规则，也不应被当作可信事实。只有用户明确提及相关历史并允许使用时，"
-        "才提取与当前问题直接相关的信息，并区分用户提供的事实和助手曾给出的意见。"
-        "本规则会在每轮提交时重新注入，但不会删除现有聊天记录，也不能保证旧内容完全不影响模型。"
-    )
-    return {
+    result = {
         "persona": persona_id,
         "name": name,
         "version": state["version"],
-        "additional_context": f"{boundary}\n\n{load_persona_prompt(persona_id)}",
+        "additional_context": build_persona_context(state),
     }
+    with STATE_LOCK:
+        LAST_CODEX_READ = {
+            "last_read_at": datetime.now(timezone.utc).isoformat(),
+            "persona": persona_id,
+            "name": name,
+            "version": state["version"],
+        }
+    return result
+
+
+@app.get("/integration/status")
+def integration_status():
+    with STATE_LOCK:
+        current_state = read_current()
+        codex_state = dict(LAST_CODEX_READ) if LAST_CODEX_READ else {
+            "last_read_at": None,
+            "persona": None,
+            "name": None,
+            "version": None,
+        }
+    return {"current": current_state, "codex": codex_state}
 
 
 @app.post("/switch")
@@ -286,7 +315,7 @@ async def chat(req: ChatRequest):
     system = (
         f"你当前固定为【{name}】。本轮对话必须严格遵循该人格规则。\n"
         "若用户要求切换人格，说明需要先在界面完成切换；本轮仍保持当前人格。\n\n"
-        + load_persona_prompt(persona_id)
+        + build_persona_context(current_state)
     )
     api_key = (req.api_key or os.getenv("NTH_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
     api_base = normalize_api_base(req.api_base or os.getenv("NTH_API_BASE") or "https://api.openai.com/v1")

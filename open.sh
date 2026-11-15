@@ -11,6 +11,7 @@ if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
 fi
 URL="http://127.0.0.1:$PORT"
 PROBE="$DIR/server/service_probe.py"
+RUNTIME_CONFIG="$DIR/server/runtime_config.py"
 
 echo "=================================="
 echo "  第N人格 · The Nth Persona"
@@ -93,6 +94,8 @@ else
   echo "无法确认本地服务状态，探测器退出码：$SERVICE_STATUS"
   exit 1
 fi
+
+"$SYSTEM_PY" "$RUNTIME_CONFIG" --url "$URL" >/dev/null
 
 echo ""
 echo "正在打开页面..."

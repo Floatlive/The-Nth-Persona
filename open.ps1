@@ -5,6 +5,7 @@ $ServerDir = Join-Path $Root "server"
 $VenvDir = Join-Path $Root ".venv"
 $Python = Join-Path $VenvDir "Scripts\python.exe"
 $ProbeScript = Join-Path $ServerDir "service_probe.py"
+$RuntimeConfigScript = Join-Path $ServerDir "runtime_config.py"
 $Port = 8000
 if ($env:NTH_PORT) {
     $ParsedPort = 0
@@ -116,6 +117,11 @@ if ($ServiceStatus -eq 1) {
             exit 1
         }
     }
+}
+
+& $ProbePython @ProbeArguments $RuntimeConfigScript --url $Url | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "写入 Codex 本地服务配置失败。"
 }
 
 Write-Host "第N人格已启动：$Url" -ForegroundColor Green
