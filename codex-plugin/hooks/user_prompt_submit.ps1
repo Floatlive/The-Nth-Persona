@@ -22,8 +22,17 @@ function Test-LocalContextUrl {
 }
 
 try {
-    # Hooks receive the submitted prompt on stdin. Consume it without forwarding or storing it.
-    [void][Console]::In.ReadToEnd()
+    # Parse only the session id. Never forward, print, or store the submitted prompt.
+    $rawInput = [Console]::In.ReadToEnd()
+    $sessionId = $null
+    if (-not [string]::IsNullOrWhiteSpace($rawInput)) {
+        try {
+            $eventData = $rawInput | ConvertFrom-Json
+            $sessionId = [string]$eventData.session_id
+        } catch {
+            $sessionId = $null
+        }
+    }
     $url = $env:NTH_PERSONA_CODEX_URL
     if ([string]::IsNullOrWhiteSpace($url)) {
         $configPath = Join-Path $env:LOCALAPPDATA "TheNthPersona\service.json"
@@ -44,9 +53,16 @@ try {
     if (-not (Test-LocalContextUrl $url)) {
         throw "人格服务地址必须是本机 HTTP 地址"
     }
+    if (-not [string]::IsNullOrWhiteSpace($sessionId)) {
+        $url = "${url}?conversation_id=$([Uri]::EscapeDataString($sessionId))"
+    }
     $response = Invoke-WebRequest -Method Get -Uri $url -TimeoutSec 3 -UseBasicParsing
     $body = [System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())
     $context = $body | ConvertFrom-Json
+    if (($context.PSObject.Properties.Name -contains "active") -and -not [bool]$context.active) {
+        Write-HookResult @{}
+        exit 0
+    }
     if ([string]::IsNullOrWhiteSpace([string]$context.additional_context)) {
         throw "人格上下文为空"
     }
