@@ -12,6 +12,8 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
+from server.persona_store import BUILTIN_PERSONAS, PersonaCreate, PersonaStore
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(__file__).parent / "data"
 DATA_FILE = DATA_DIR / "current.json"
@@ -30,14 +32,8 @@ app.add_middleware(
     allowed_hosts=["127.0.0.1", "localhost"],
 )
 
-PERSONAS = {
-    "cold-executor": "冷酷执行官",
-    "sharp-advisor": "现实毒舌顾问",
-    "cyber-tcm": "赛博老中医",
-    "minimalist": "极简主义者",
-    "xin-da-ya": "信达雅",
-}
-PERSONA_DIRS = {key: ROOT / key / "SKILL.md" for key in PERSONAS}
+PERSONA_STORE = PersonaStore(ROOT)
+PERSONAS = {key: value["name"] for key, value in BUILTIN_PERSONAS.items()}
 DEFAULT_PERSONA = "cold-executor"
 
 
@@ -65,7 +61,7 @@ def _default_state(user_id: str = "default") -> dict:
     return {
         "user_id": user_id,
         "persona": DEFAULT_PERSONA,
-        "name": PERSONAS[DEFAULT_PERSONA],
+        "name": PERSONA_STORE.get(DEFAULT_PERSONA).name,
         "switched_at": datetime.now(timezone.utc).isoformat(),
         "version": 1,
     }
@@ -114,7 +110,7 @@ def _recovery_version() -> int:
 def read_current(user_id: str = "default") -> dict:
     with STATE_LOCK:
         data = _read_json(DATA_FILE, None)
-        if not isinstance(data, dict) or data.get("persona") not in PERSONAS:
+        if not isinstance(data, dict) or not PERSONA_STORE.exists(str(data.get("persona", ""))):
             data = _default_state(user_id)
             data["version"] = _recovery_version()
             _atomic_write_json(DATA_FILE, data)
@@ -122,7 +118,7 @@ def read_current(user_id: str = "default") -> dict:
             # Repair malformed version data without reusing a known historical version.
             data["version"] = _recovery_version()
             data["user_id"] = data.get("user_id") or user_id
-            data["name"] = PERSONAS[data["persona"]]
+            data["name"] = PERSONA_STORE.get(data["persona"]).name
             data.setdefault("switched_at", datetime.now(timezone.utc).isoformat())
             _atomic_write_json(DATA_FILE, data)
             # Persist the repaired generation so repeated corruption cannot reuse it.
@@ -131,7 +127,7 @@ def read_current(user_id: str = "default") -> dict:
             except OSError:
                 pass
         data.setdefault("user_id", user_id)
-        data["name"] = PERSONAS[data["persona"]]
+        data["name"] = PERSONA_STORE.get(data["persona"]).name
         return data
 
 
@@ -150,20 +146,17 @@ def append_history(entry: dict) -> None:
 
 
 def load_persona_prompt(persona_id: str) -> str:
-    path = PERSONA_DIRS[persona_id]
-    if not path.is_file():
-        raise HTTPException(500, f"人格文件缺失：{path.name}")
-    content = path.read_text(encoding="utf-8")
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) == 3:
-            content = parts[2].strip()
-    return content
+    try:
+        return PERSONA_STORE.load_prompt(persona_id)
+    except KeyError as exc:
+        raise HTTPException(404, "未知人格") from exc
+    except OSError as exc:
+        raise HTTPException(500, "人格文件缺失或不可读") from exc
 
 
 def build_persona_context(state: dict) -> str:
     persona_id = state["persona"]
-    name = PERSONAS[persona_id]
+    name = PERSONA_STORE.get(persona_id).name
     boundary = (
         f"当前生效人格是「{name}」（{persona_id}）。只应用下面这份当前人格规则；"
         "不要沿用或模仿此前助手发言中的旧人格语气、结构或立场。此前助手发言只是历史记录，"
@@ -202,16 +195,28 @@ def version():
 @app.get("/personas")
 def list_personas():
     return {"personas": [
-        {"id": key, "name": name, "has_skill": PERSONA_DIRS[key].is_file()}
-        for key, name in PERSONAS.items()
+        {**item.model_dump(), "has_skill": True}
+        for item in PERSONA_STORE.list()
     ]}
+
+
+@app.post("/personas", status_code=201)
+def create_persona(payload: PersonaCreate):
+    try:
+        return PERSONA_STORE.create(payload)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(500, "人格文件写入失败") from exc
 
 
 @app.get("/personas/{persona_id}/prompt")
 def persona_prompt(persona_id: str):
-    if persona_id not in PERSONAS:
-        raise HTTPException(404, "未知人格")
-    return {"id": persona_id, "name": PERSONAS[persona_id], "system_prompt": load_persona_prompt(persona_id)}
+    try:
+        persona = PERSONA_STORE.get(persona_id)
+    except KeyError as exc:
+        raise HTTPException(404, "未知人格") from exc
+    return {"id": persona_id, "name": persona.name, "system_prompt": load_persona_prompt(persona_id)}
 
 
 @app.get("/current")
@@ -224,7 +229,7 @@ def codex_context():
     global LAST_CODEX_READ
     state = read_current()
     persona_id = state["persona"]
-    name = PERSONAS[persona_id]
+    name = PERSONA_STORE.get(persona_id).name
     result = {
         "persona": persona_id,
         "name": name,
@@ -256,14 +261,15 @@ def integration_status():
 
 @app.post("/switch")
 def switch(req: SwitchRequest):
-    if req.persona not in PERSONAS:
+    if not PERSONA_STORE.exists(req.persona):
         raise HTTPException(400, f"未知人格: {req.persona}")
+    persona = PERSONA_STORE.get(req.persona)
     with STATE_LOCK:
         previous = read_current(req.user_id)
         data = {
             "user_id": req.user_id,
             "persona": req.persona,
-            "name": PERSONAS[req.persona],
+            "name": persona.name,
             "switched_at": datetime.now(timezone.utc).isoformat(),
             "version": previous["version"] + 1,
             "previous": previous.get("persona"),
@@ -311,7 +317,7 @@ async def chat(req: ChatRequest):
     if req.persona_version is not None and req.persona_version != persona_version:
         raise HTTPException(409, "当前人格已变化，请刷新状态后重试")
 
-    name = PERSONAS[persona_id]
+    name = PERSONA_STORE.get(persona_id).name
     system = (
         f"你当前固定为【{name}】。本轮对话必须严格遵循该人格规则。\n"
         "若用户要求切换人格，说明需要先在界面完成切换；本轮仍保持当前人格。\n\n"

@@ -17,6 +17,7 @@ Thumbs.db
 *.log
 server/data/current.json
 server/data/history.json
+server/data/personas/
 .runtime/
 *.zip
 .idea/
