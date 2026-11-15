@@ -43,7 +43,11 @@ BUILTIN_PERSONAS = {
 
 
 class Persona(BaseModel):
-    id: str
+    id: str = Field(
+        pattern=r"^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$",
+        min_length=2,
+        max_length=48,
+    )
     name: str
     emoji: str = "◇"
     summary: str
@@ -89,7 +93,10 @@ class PersonaStore:
         self.builtins = dict(builtins or BUILTIN_PERSONAS)
 
     def _custom_path(self, persona_id: str) -> Path:
-        return self.custom_dir / persona_id
+        path = (self.custom_dir / persona_id).resolve()
+        if path.parent != self.custom_dir:
+            raise ValueError("人格路径超出自定义人格目录")
+        return path
 
     def _custom_items(self) -> list[Persona]:
         if not self.custom_dir.is_dir():
@@ -98,7 +105,15 @@ class PersonaStore:
         for metadata_file in sorted(self.custom_dir.glob("*/persona.json")):
             try:
                 data = json.loads(metadata_file.read_text(encoding="utf-8"))
-                result.append(Persona(**data, builtin=False))
+                persona = Persona(**data, builtin=False)
+                directory = metadata_file.parent.resolve()
+                if directory.parent != self.custom_dir:
+                    continue
+                if metadata_file.resolve().parent != directory:
+                    continue
+                if persona.id != metadata_file.parent.name:
+                    continue
+                result.append(persona)
             except (OSError, json.JSONDecodeError, ValueError, TypeError):
                 continue
         return result
@@ -130,7 +145,15 @@ class PersonaStore:
             path = self.root / persona_id / "SKILL.md"
         else:
             self.get(persona_id)
-            path = self._custom_path(persona_id) / "SKILL.md"
+            directory = self._custom_path(persona_id)
+            path = directory / "SKILL.md"
+            try:
+                resolved = path.resolve(strict=True)
+            except OSError as exc:
+                raise OSError("人格提示词路径不安全") from exc
+            if path.is_symlink() or resolved.parent != directory or not resolved.is_file():
+                raise OSError("人格提示词路径不安全")
+            path = resolved
         content = path.read_text(encoding="utf-8")
         if content.startswith("---"):
             parts = content.split("---", 2)
@@ -179,4 +202,3 @@ class PersonaStore:
             directory.rmdir()
             raise
         return metadata
-

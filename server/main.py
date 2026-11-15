@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import secrets
 from threading import RLock
 import json
 import os
@@ -8,7 +9,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field, model_validator
@@ -16,6 +17,7 @@ from pydantic import BaseModel, Field, model_validator
 from server.activation import PROVIDERS, SCOPES, resolve_activation
 from server.persona_store import BUILTIN_PERSONAS, PersonaCreate, PersonaStore
 from server.providers import get_provider
+from server.runtime_config import read_codex_hook_token
 from server.version import APP_NAME, APP_VERSION
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -39,6 +41,55 @@ app.add_middleware(
 PERSONA_STORE = PersonaStore(ROOT)
 PERSONAS = {key: value["name"] for key, value in BUILTIN_PERSONAS.items()}
 DEFAULT_PERSONA = "cold-executor"
+PROVIDER_CONFIGS = {
+    "openai": {
+        "label": "OpenAI Chat Completions",
+        "base": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini",
+        "env_key": "OPENAI_API_KEY",
+    },
+    "claude": {
+        "label": "Claude Messages",
+        "base": "https://api.anthropic.com/v1",
+        "model": "claude-sonnet-5-5",
+        "env_key": "ANTHROPIC_API_KEY",
+    },
+    "gemini": {
+        "label": "Gemini generateContent",
+        "base": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "gemini-2.5-flash",
+        "env_key": "GEMINI_API_KEY",
+    },
+    "deepseek": {
+        "label": "DeepSeek Chat",
+        "base": "https://api.deepseek.com",
+        "model": "deepseek-flash",
+        "env_key": "DEEPSEEK_API_KEY",
+    },
+    "doubao": {
+        "label": "豆包 · 火山方舟",
+        "base": "https://ark.cn-beijing.volces.com/api/v3",
+        "model": "",
+        "env_key": "ARK_API_KEY",
+    },
+}
+
+
+def _validate_activation_target(
+    *,
+    enabled: bool,
+    scope: str,
+    provider: str | None,
+    conversation_id: str | None,
+) -> None:
+    if enabled and scope == "off":
+        raise ValueError("启用人格时 scope 不能为 off")
+    if enabled and scope == "provider" and not provider:
+        raise ValueError("当前 AI 作用域需要 provider")
+    if enabled and scope == "conversation" and (
+        not provider or not conversation_id
+    ):
+        raise ValueError("当前对话作用域需要 provider 和 conversation_id")
 
 
 class SwitchRequest(BaseModel):
@@ -50,6 +101,17 @@ class SwitchRequest(BaseModel):
     provider: Literal["codex", "claude", "gemini", "deepseek", "doubao"] | None = None
     conversation_id: str | None = Field(default=None, max_length=256)
 
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.scope is not None:
+            _validate_activation_target(
+                enabled=self.enabled is not False,
+                scope=self.scope,
+                provider=self.provider,
+                conversation_id=self.conversation_id,
+            )
+        return self
+
 
 class EnableRequest(BaseModel):
     enabled: bool
@@ -59,12 +121,17 @@ class EnableRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_target(self):
-        if self.enabled and self.scope == "provider" and not self.provider:
-            raise ValueError("当前 AI 作用域需要 provider")
-        if self.enabled and self.scope == "conversation":
-            if not self.provider or not self.conversation_id:
-                raise ValueError("当前对话作用域需要 provider 和 conversation_id")
+        _validate_activation_target(
+            enabled=self.enabled,
+            scope=self.scope,
+            provider=self.provider,
+            conversation_id=self.conversation_id,
+        )
         return self
+
+
+class CodexContextRequest(BaseModel):
+    conversation_id: str | None = Field(default=None, max_length=256)
 
 
 class ChatMessage(BaseModel):
@@ -95,6 +162,8 @@ def _default_state(user_id: str = "default") -> dict:
         "scope": "global",
         "provider": None,
         "conversation_id": None,
+        "binding_pending": False,
+        "binding_started_at": None,
     }
 
 
@@ -173,6 +242,26 @@ def read_current(user_id: str = "default") -> dict:
         ):
             data["conversation_id"] = None
             changed = True
+        if not isinstance(data.get("binding_pending"), bool):
+            data["binding_pending"] = False
+            changed = True
+        if data["binding_pending"]:
+            if (
+                data.get("enabled")
+                or data.get("scope") != "off"
+                or data.get("provider") is not None
+                or data.get("conversation_id") is not None
+            ):
+                data["enabled"] = False
+                data["scope"] = "off"
+                data["provider"] = None
+                data["conversation_id"] = None
+                changed = True
+        if "binding_started_at" not in data or not isinstance(
+            data.get("binding_started_at"), (str, type(None))
+        ):
+            data["binding_started_at"] = None
+            changed = True
         data.setdefault("user_id", user_id)
         data["name"] = PERSONA_STORE.get(data["persona"]).name
         if changed:
@@ -194,6 +283,7 @@ def append_history(entry: dict) -> None:
         "scope": entry.get("scope", "global"),
         "provider": entry.get("provider"),
         "conversation_id": entry.get("conversation_id"),
+        "binding_pending": entry.get("binding_pending", False),
     })
     _atomic_write_json(HISTORY_FILE, history[-50:])
 
@@ -227,7 +317,54 @@ def normalize_api_base(raw: str) -> str:
         raise HTTPException(400, "API Base 必须是完整的 http:// 或 https:// 地址")
     if parsed.username or parsed.password:
         raise HTTPException(400, "API Base 不应包含账号或密码")
+    if parsed.query or parsed.fragment:
+        raise HTTPException(400, "API Base 不应包含查询参数或片段")
     return base
+
+
+def _origin(raw: str) -> tuple[str, str, int | None]:
+    parsed = urlparse(raw)
+    return parsed.scheme.lower(), parsed.hostname or "", parsed.port
+
+
+def resolve_chat_config(req: ChatRequest) -> tuple[str, str, str]:
+    config = PROVIDER_CONFIGS[req.provider]
+    explicit_key = (req.api_key or "").strip()
+    explicit_base = (req.api_base or "").strip()
+    if req.provider == "openai":
+        configured_base = os.getenv("NTH_API_BASE") or config["base"]
+        configured_key = (
+            os.getenv("NTH_API_KEY") or os.getenv(config["env_key"]) or ""
+        ).strip()
+        configured_model = os.getenv("NTH_MODEL") or config["model"]
+    else:
+        configured_base = config["base"]
+        configured_key = (os.getenv(config["env_key"]) or "").strip()
+        configured_model = config["model"]
+
+    api_base = normalize_api_base(explicit_base or configured_base)
+    if explicit_key:
+        api_key = explicit_key
+    elif explicit_base and _origin(api_base) != _origin(config["base"]):
+        raise HTTPException(
+            400,
+            "自定义 API Base 必须在当前请求中显式提供 API Key",
+        )
+    else:
+        api_key = configured_key
+
+    model = (req.model or configured_model).strip()
+    if not api_key:
+        env_hint = config["env_key"]
+        if req.provider == "openai":
+            env_hint = f"NTH_API_KEY / {env_hint}"
+        raise HTTPException(
+            400,
+            f"未配置 API Key。请在页面设置里填写，或设置 {env_hint}",
+        )
+    if not model:
+        raise HTTPException(400, "模型名称不能为空")
+    return api_base, api_key, model
 
 
 @app.get("/")
@@ -243,6 +380,21 @@ def health():
 @app.get("/version")
 def version():
     return {"version": APP_VERSION, "name": APP_NAME}
+
+
+@app.get("/provider-defaults")
+def provider_defaults():
+    providers = {
+        provider: {
+            "label": config["label"],
+            "base": config["base"],
+            "model": config["model"],
+        }
+        for provider, config in PROVIDER_CONFIGS.items()
+        if provider != "openai"
+    }
+    providers["codex"] = {"label": "Codex Hook", "base": "", "model": ""}
+    return {"providers": providers}
 
 
 @app.get("/personas")
@@ -277,8 +429,11 @@ def current(user_id: str = "default"):
     return read_current(user_id)
 
 
-def _context_result(provider: str, conversation_id: str | None = None) -> dict:
-    state = read_current()
+def _context_result_for_state(
+    state: dict,
+    provider: str,
+    conversation_id: str | None = None,
+) -> dict:
     persona_id = state["persona"]
     persona = PERSONA_STORE.get(persona_id)
     decision = resolve_activation(state, provider, conversation_id)
@@ -295,6 +450,29 @@ def _context_result(provider: str, conversation_id: str | None = None) -> dict:
     }
 
 
+def _context_result(provider: str, conversation_id: str | None = None) -> dict:
+    return _context_result_for_state(read_current(), provider, conversation_id)
+
+
+def current_codex_hook_token() -> str:
+    return (
+        os.getenv("NTH_PERSONA_CODEX_TOKEN", "").strip()
+        or read_codex_hook_token()
+    )
+
+
+def _record_codex_read(result: dict, conversation_id: str | None) -> None:
+    global LAST_CODEX_READ
+    LAST_CODEX_READ = {
+        "last_read_at": datetime.now(timezone.utc).isoformat(),
+        "persona": result["persona"],
+        "name": result["name"],
+        "version": result["version"],
+        "active": result["active"],
+        "conversation_id": conversation_id,
+    }
+
+
 @app.get("/context")
 def context(provider: str, conversation_id: str | None = None):
     if provider not in PROVIDERS:
@@ -304,18 +482,71 @@ def context(provider: str, conversation_id: str | None = None):
 
 @app.get("/codex/context")
 def codex_context(conversation_id: str | None = None):
-    global LAST_CODEX_READ
-    result = _context_result("codex", conversation_id)
+    return _context_result("codex", conversation_id)
+
+
+@app.post("/codex/context")
+def codex_hook_context(
+    req: CodexContextRequest,
+    x_nth_persona_token: str | None = Header(default=None),
+):
+    expected_token = current_codex_hook_token()
+    supplied_token = (x_nth_persona_token or "").strip()
+    if (
+        not expected_token
+        or not supplied_token
+        or not secrets.compare_digest(supplied_token, expected_token)
+    ):
+        raise HTTPException(401, "Codex Hook 认证失败")
     with STATE_LOCK:
-        LAST_CODEX_READ = {
-            "last_read_at": datetime.now(timezone.utc).isoformat(),
-            "persona": result["persona"],
-            "name": result["name"],
-            "version": result["version"],
-            "active": result["active"],
-            "conversation_id": conversation_id,
-        }
+        state = read_current()
+        if state.get("binding_pending") and req.conversation_id:
+            data = {
+                **state,
+                "enabled": True,
+                "scope": "conversation",
+                "provider": "codex",
+                "conversation_id": req.conversation_id,
+                "binding_pending": False,
+                "binding_started_at": None,
+                "switched_at": datetime.now(timezone.utc).isoformat(),
+                "version": state["version"] + 1,
+                "previous": state["persona"],
+            }
+            _atomic_write_json(DATA_FILE, data)
+            try:
+                append_history(data)
+            except OSError:
+                pass
+            state = data
+        result = _context_result_for_state(state, "codex", req.conversation_id)
+        _record_codex_read(result, req.conversation_id)
     return result
+
+
+@app.post("/codex/bind")
+def begin_codex_binding():
+    with STATE_LOCK:
+        previous = read_current()
+        data = {
+            **previous,
+            "enabled": False,
+            "scope": "off",
+            "provider": None,
+            "conversation_id": None,
+            "binding_pending": True,
+            "binding_started_at": datetime.now(timezone.utc).isoformat(),
+            "switched_at": datetime.now(timezone.utc).isoformat(),
+            "version": previous["version"] + 1,
+            "previous": previous["persona"],
+        }
+        _atomic_write_json(DATA_FILE, data)
+        try:
+            append_history(data)
+            history_saved = True
+        except OSError:
+            history_saved = False
+    return {"ok": True, "history_saved": history_saved, "current": data}
 
 
 @app.get("/integration/status")
@@ -346,12 +577,34 @@ def switch(req: SwitchRequest):
             "version": previous["version"] + 1,
             "previous": previous.get("persona"),
             "enabled": previous.get("enabled", True) if req.enabled is None else req.enabled,
-            "scope": req.scope or previous.get("scope", "global"),
-            "provider": req.provider if req.scope is not None else previous.get("provider"),
+            "scope": (
+                "off"
+                if req.enabled is False
+                else req.scope or previous.get("scope", "global")
+            ),
+            "provider": (
+                None
+                if req.enabled is False
+                else req.provider
+                if req.scope is not None
+                else previous.get("provider")
+            ),
             "conversation_id": (
-                req.conversation_id
+                None
+                if req.enabled is False
+                else req.conversation_id
                 if req.scope is not None
                 else previous.get("conversation_id")
+            ),
+            "binding_pending": (
+                previous.get("binding_pending", False)
+                if req.enabled is None and req.scope is None
+                else False
+            ),
+            "binding_started_at": (
+                previous.get("binding_started_at")
+                if req.enabled is None and req.scope is None
+                else None
             ),
         }
         _atomic_write_json(DATA_FILE, data)
@@ -374,6 +627,8 @@ def enable(req: EnableRequest):
             "scope": req.scope if req.enabled else "off",
             "provider": req.provider if req.enabled else None,
             "conversation_id": req.conversation_id if req.enabled else None,
+            "binding_pending": False,
+            "binding_started_at": None,
             "switched_at": datetime.now(timezone.utc).isoformat(),
             "version": previous["version"] + 1,
             "previous": previous["persona"],
@@ -429,41 +684,7 @@ async def chat(req: ChatRequest):
             "若用户要求切换人格，说明需要先在界面完成切换；本轮仍保持当前人格。\n\n"
             + build_persona_context(current_state)
         )
-    provider_env = {
-        "openai": "OPENAI_API_KEY",
-        "claude": "ANTHROPIC_API_KEY",
-        "gemini": "GEMINI_API_KEY",
-        "deepseek": "DEEPSEEK_API_KEY",
-        "doubao": "ARK_API_KEY",
-    }
-    default_bases = {
-        "openai": "https://api.openai.com/v1",
-        "claude": "https://api.anthropic.com/v1",
-        "gemini": "https://generativelanguage.googleapis.com/v1beta",
-        "deepseek": "https://api.deepseek.com",
-        "doubao": "https://ark.cn-beijing.volces.com/api/v3",
-    }
-    default_models = {
-        "openai": "gpt-4o-mini",
-        "claude": "claude-sonnet-4-5",
-        "gemini": "gemini-2.5-flash",
-        "deepseek": "deepseek-chat",
-        "doubao": "",
-    }
-    api_key = (
-        req.api_key
-        or os.getenv("NTH_API_KEY")
-        or os.getenv(provider_env[req.provider])
-        or ""
-    ).strip()
-    api_base = normalize_api_base(
-        req.api_base or os.getenv("NTH_API_BASE") or default_bases[req.provider]
-    )
-    model = (req.model or os.getenv("NTH_MODEL") or default_models[req.provider]).strip()
-    if not api_key:
-        raise HTTPException(400, "未配置 API Key。请在页面设置里填写，或设置 NTH_API_KEY / OPENAI_API_KEY")
-    if not model:
-        raise HTTPException(400, "模型名称不能为空")
+    api_base, api_key, model = resolve_chat_config(req)
 
     messages = []
     for item in req.history[-20:]:
@@ -509,4 +730,7 @@ async def chat(req: ChatRequest):
     except HTTPException:
         raise
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
-        raise HTTPException(502, f"模型接口请求或响应异常：{type(exc).__name__}: {exc}") from exc
+        raise HTTPException(
+            502,
+            f"模型接口请求或响应异常：{type(exc).__name__}",
+        ) from exc

@@ -45,4 +45,3 @@ class GeminiAdapter:
         if not text:
             raise ValueError("Gemini 返回的回复内容格式不正确")
         return ProviderReply(text=text, model=model)
-

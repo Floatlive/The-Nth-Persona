@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import secrets
 import tempfile
 from urllib.parse import urlparse
 
@@ -40,9 +41,19 @@ def write_runtime_config(base_url: str, config_path: Path | None = None) -> Path
     normalized = normalize_local_base_url(base_url)
     path = config_path or runtime_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    hook_token = ""
+    if path.exists():
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+            hook_token = str(current.get("codex_hook_token", "")).strip()
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+            hook_token = ""
+    if len(hook_token) < 32:
+        hook_token = secrets.token_urlsafe(32)
     data = {
         "base_url": normalized,
         "codex_context_url": f"{normalized}/codex/context",
+        "codex_hook_token": hook_token,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     fd, temp_name = tempfile.mkstemp(
@@ -61,6 +72,17 @@ def write_runtime_config(base_url: str, config_path: Path | None = None) -> Path
             pass
         raise
     return path
+
+
+def read_codex_hook_token(config_path: Path | None = None) -> str:
+    path = config_path or runtime_config_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    return str(data.get("codex_hook_token", "")).strip()
 
 
 def main() -> int:

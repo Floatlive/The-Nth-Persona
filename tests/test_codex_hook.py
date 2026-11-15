@@ -14,10 +14,15 @@ HOOK = ROOT / "codex-plugin" / "hooks" / "user_prompt_submit.ps1"
 
 class _ContextHandler(BaseHTTPRequestHandler):
     last_path = None
+    last_token = None
+    last_body = None
 
-    def do_GET(self):
+    def do_POST(self):
         type(self).last_path = self.path
-        if not self.path.startswith("/codex/context"):
+        type(self).last_token = self.headers.get("X-Nth-Persona-Token")
+        length = int(self.headers.get("Content-Length", "0"))
+        type(self).last_body = json.loads(self.rfile.read(length) or b"{}")
+        if self.path != "/codex/context":
             self.send_response(404)
             self.end_headers()
             return
@@ -54,7 +59,8 @@ def test_hook_reads_custom_port_from_user_runtime_config(tmp_path):
                 {
                     "codex_context_url": (
                         f"http://127.0.0.1:{server.server_port}/codex/context"
-                    )
+                    ),
+                    "codex_hook_token": "runtime-token",
                 }
             ),
             encoding="utf-8",
@@ -93,15 +99,25 @@ def test_hook_reads_custom_port_from_user_runtime_config(tmp_path):
 @pytest.mark.skipif(os.name != "nt", reason="需要 Windows PowerShell 5.1")
 def test_hook_passes_codex_session_id_as_conversation_scope(tmp_path):
     _ContextHandler.last_path = None
+    _ContextHandler.last_token = None
+    _ContextHandler.last_body = None
     server = ThreadingHTTPServer(("127.0.0.1", 0), _ContextHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
         env = os.environ.copy()
-        env["LOCALAPPDATA"] = str(tmp_path / "LocalAppData")
+        local_app_data = tmp_path / "LocalAppData"
+        config_dir = local_app_data / "TheNthPersona"
+        config_dir.mkdir(parents=True)
+        config_dir.joinpath("service.json").write_text(
+            json.dumps({"codex_hook_token": "runtime-token"}),
+            encoding="utf-8",
+        )
+        env["LOCALAPPDATA"] = str(local_app_data)
         env["NTH_PERSONA_CODEX_URL"] = (
             f"http://127.0.0.1:{server.server_port}/codex/context"
         )
+        env.pop("NTH_PERSONA_CODEX_TOKEN", None)
 
         result = subprocess.run(
             [
@@ -121,9 +137,9 @@ def test_hook_passes_codex_session_id_as_conversation_scope(tmp_path):
         )
 
         assert result.returncode == 0, result.stderr
-        assert _ContextHandler.last_path == (
-            "/codex/context?conversation_id=chat%20%2F%2042"
-        )
+        assert _ContextHandler.last_path == "/codex/context"
+        assert _ContextHandler.last_token == "runtime-token"
+        assert _ContextHandler.last_body == {"conversation_id": "chat / 42"}
         assert "不要记录我" not in result.stdout
     finally:
         server.shutdown()
@@ -131,7 +147,12 @@ def test_hook_passes_codex_session_id_as_conversation_scope(tmp_path):
 
 
 class _InactiveContextHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    last_path = None
+
+    def do_POST(self):
+        type(self).last_path = self.path
+        length = int(self.headers.get("Content-Length", "0"))
+        self.rfile.read(length)
         body = json.dumps(
             {
                 "active": False,
@@ -151,6 +172,7 @@ class _InactiveContextHandler(BaseHTTPRequestHandler):
 
 @pytest.mark.skipif(os.name != "nt", reason="需要 Windows PowerShell 5.1")
 def test_hook_returns_empty_result_when_persona_is_not_active(tmp_path):
+    _InactiveContextHandler.last_path = None
     server = ThreadingHTTPServer(("127.0.0.1", 0), _InactiveContextHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -160,6 +182,7 @@ def test_hook_returns_empty_result_when_persona_is_not_active(tmp_path):
         env["NTH_PERSONA_CODEX_URL"] = (
             f"http://127.0.0.1:{server.server_port}/codex/context"
         )
+        env["NTH_PERSONA_CODEX_TOKEN"] = "env-token"
         result = subprocess.run(
             [
                 "powershell.exe",
@@ -178,6 +201,10 @@ def test_hook_returns_empty_result_when_persona_is_not_active(tmp_path):
         )
 
         assert result.returncode == 0, result.stderr
+        assert _InactiveContextHandler.last_path == "/codex/context", (
+            result.stdout,
+            result.stderr,
+        )
         assert json.loads(result.stdout) == {}
     finally:
         server.shutdown()

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -85,3 +86,54 @@ def test_persona_id_rejects_path_traversal_and_invalid_names(persona_id):
             description="测试描述",
             rules="测试规则",
         )
+
+
+def test_store_ignores_custom_metadata_with_invalid_or_mismatched_id(tmp_path):
+    store = make_store(tmp_path)
+    custom_dir = store.custom_dir / "safe-folder"
+    custom_dir.mkdir(parents=True)
+    custom_dir.joinpath("persona.json").write_text(
+        json.dumps(
+            {
+                "id": "../outside",
+                "name": "损坏人格",
+                "emoji": "◇",
+                "summary": "不应载入",
+                "description": "目录名和 ID 不一致。",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    custom_dir.joinpath("SKILL.md").write_text("不应读取", encoding="utf-8")
+
+    assert [item.id for item in store.list()] == ["minimalist"]
+    with pytest.raises(KeyError):
+        store.get("../outside")
+
+
+def test_store_rejects_custom_prompt_symlink_outside_persona_directory(
+    monkeypatch, tmp_path
+):
+    store = make_store(tmp_path)
+    created = store.create(
+        PersonaCreate(
+            id="safe-persona",
+            name="安全人格",
+            summary="只读自身规则",
+            description="拒绝目录外规则。",
+            rules="保持边界。",
+        )
+    )
+    prompt_path = store.custom_dir / created.id / "SKILL.md"
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path):
+        if path == prompt_path:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    with pytest.raises(OSError, match="人格提示词路径不安全"):
+        store.load_prompt(created.id)

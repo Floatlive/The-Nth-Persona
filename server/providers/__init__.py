@@ -21,4 +21,3 @@ def get_provider(name: str) -> ProviderAdapter:
 
 
 __all__ = ["ProviderAdapter", "ProviderReply", "get_provider"]
-

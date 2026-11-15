@@ -23,4 +23,3 @@ class ProviderAdapter(Protocol):
         system_prompt: str,
         messages: list[dict[str, str]],
     ) -> ProviderReply: ...
-

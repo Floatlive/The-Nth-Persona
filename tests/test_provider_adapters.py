@@ -109,4 +109,3 @@ def test_adapter_omits_system_field_when_persona_is_disabled():
 
     asyncio.run(run())
     assert "system" not in captured["body"]
-

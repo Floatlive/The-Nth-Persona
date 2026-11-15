@@ -42,4 +42,3 @@ class ClaudeAdapter:
         if not text:
             raise ValueError("Claude 返回的回复内容格式不正确")
         return ProviderReply(text=text, model=model)
-

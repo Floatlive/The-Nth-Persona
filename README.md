@@ -8,7 +8,7 @@
 
 第N人格把人格规则放进可读的 `SKILL.md`，由本地脚本服务统一管理，再通过 UI 调用 Codex、Claude、Gemini、DeepSeek 和豆包适配器。它不修改模型本身，也不删除聊天记录。
 
-- 当前版本：`v0.4.0`
+- 当前版本：`v0.4.1`
 - 适用范围：个人本地使用、Codex 桌面端、Claude / Gemini / DeepSeek / 豆包 API
 - 项目形态：**Skills + Codex Plugin + Local App**
 
@@ -35,8 +35,9 @@
 
 - 5 个内置人格，并可在 UI 中创建自定义人格。
 - 页面点击切换，立即显示「已切换至【…】」。
-- 可选择关闭、当前对话、当前 AI 或所有已接入 AI。
+- 可选择关闭、当前对话、当前 AI 或所有已接入 AI；网页当前对话按标签页隔离。
 - Codex 每次提交提示时重新读取当前人格，旧聊天记录继续保留。
+- Codex 选择“当前对话”后会立即停用旧作用域，并等待下一次通过本地令牌认证的 Hook 提交；服务端原子绑定该聊天 ID。
 - Claude、Gemini、DeepSeek 和豆包通过各自 API 协议注入同一份人格。
 - 人格状态原子写入，版本号递增；切换期间的过期回复会被拒绝。
 - 本地 API、OpenAI 兼容聊天接口、回归测试和 Windows 安装脚本。
@@ -87,7 +88,7 @@ $env:NTH_PORT = "8010"
 NTH_PORT=8010 ./open.sh
 ```
 
-启动器在确认服务可用后，会把当前本机地址写入用户级 `service.json`。Codex Hook 会自动读取该地址，因此使用 `8010` 等自定义端口时不需要再手动修改插件。Windows 配置位于 `%LOCALAPPDATA%\TheNthPersona\service.json`；macOS / Linux 配置位于 `$XDG_CONFIG_HOME/the-nth-persona/service.json` 或 `~/.config/the-nth-persona/service.json`。
+启动器在确认服务可用后，会把当前本机地址和随机 Hook 令牌写入用户级 `service.json`。Codex Hook 会自动读取它们，因此使用 `8010` 等自定义端口时不需要再手动修改插件。Windows 配置位于 `%LOCALAPPDATA%\TheNthPersona\service.json`；macOS / Linux 配置位于 `$XDG_CONFIG_HOME/the-nth-persona/service.json` 或 `~/.config/the-nth-persona/service.json`。令牌只用于本机 Hook 请求认证，不是模型 API Key。
 
 ## 接入 Codex 桌面端
 
@@ -100,6 +101,8 @@ Windows 上，在项目目录运行：
 首次使用时，在 Codex 桌面端审阅并信任 `UserPromptSubmit` Hook，然后保持第N人格服务运行。
 
 > Codex Hook 不是远程控制功能。它只在提交新提示时读取当前人格规则并追加到该轮上下文；不会修改模型本身，也不会删除当前聊天记录。
+>
+> “当前对话”以进入等待后的首个 Codex 提交为目标。绑定期间不要同时在其他 Codex 聊天提交；平台没有向外部 UI 暴露“当前选中聊天”的可靠接口，多个聊天同时提交时只能由服务端原子采用最先到达的一次。
 
 实际流程：
 
@@ -110,7 +113,7 @@ Windows 上，在项目目录运行：
     ↓
 Codex 提交新提示
     ↓
-Hook 读取 /codex/context
+Hook 使用本地令牌 POST /codex/context
     ↓
 当前人格规则追加到本轮模型上下文
 ```
@@ -157,8 +160,11 @@ Hook 读取 /codex/context
 | `POST` | `/switch` | 切换人格，例如 `{"persona":"minimalist"}` |
 | `POST` | `/enable` | 设置关闭、当前对话、当前 AI 或全局作用域 |
 | `GET` | `/context` | 按 provider / conversation 查询是否注入 |
-| `GET` | `/codex/context` | 返回 Codex Hook 使用的当前人格上下文 |
+| `GET` | `/codex/context` | 只读兼容查询，不会绑定对话或更新 Hook 证据 |
+| `POST` | `/codex/context` | 认证后的 Codex Hook 入口；可原子完成待绑定对话 |
+| `POST` | `/codex/bind` | 进入 Codex 当前对话等待状态，并立即停用旧作用域 |
 | `GET` | `/integration/status` | 当前人格及本进程最近一次 Codex Hook 读取证据 |
+| `GET` | `/provider-defaults` | 返回前端使用的平台 Base URL 与默认模型，不含凭据 |
 | `GET` | `/personas` | 列出全部人格 |
 | `GET` | `/history` | 查看切换历史 |
 | `POST` | `/reset` | 重置为默认人格 |
@@ -200,10 +206,12 @@ API 文档启动后位于 `http://127.0.0.1:8000/docs`。
 - 项目默认只监听 `127.0.0.1`，不是公网服务。
 - API Key 只保存在浏览器 `localStorage` 或本机环境变量；共享设备不要保存。
 - API Key 按 provider 分开保存；自定义人格、状态和历史文件不包含 Key。
+- 请求自定义 API Base 时必须在同一请求中显式提供 Key；服务端环境 Key 不会发送到调用者指定的其他域名。
+- 兼容变量 `NTH_API_KEY`、`NTH_API_BASE`、`NTH_MODEL` 仅用于 OpenAI 兼容入口，不跨 Claude、Gemini、DeepSeek 或豆包复用。
 - 当前是单用户本地版，没有鉴权和多用户隔离。
 - Skill 和 Hook 都属于提示层约束，不是模型运行时的硬权限。
 - Hook 不读取 API Key，也不读取聊天历史；服务未启动时，本轮不会注入人格。
-- 用户级 `service.json` 只保存本机服务地址和更新时间，不保存 API Key 或聊天内容。
+- 用户级 `service.json` 保存本机服务地址、随机 Hook 令牌和更新时间，不保存模型 API Key 或聊天内容。
 
 ## 许可证
 

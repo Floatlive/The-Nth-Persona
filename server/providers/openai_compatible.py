@@ -38,4 +38,3 @@ class OpenAICompatibleAdapter:
         if not isinstance(text, str):
             raise ValueError("上游 API 返回的回复内容格式不正确")
         return ProviderReply(text=text, model=model)
-

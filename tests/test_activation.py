@@ -14,6 +14,16 @@ from server.activation import resolve_activation
         ({"enabled": False, "scope": "off"}, "codex", "one", False),
         ({"enabled": True, "scope": "global"}, "gemini", None, True),
         (
+            {
+                "enabled": False,
+                "scope": "off",
+                "binding_pending": True,
+            },
+            "codex",
+            "session-1",
+            False,
+        ),
+        (
             {"enabled": True, "scope": "provider", "provider": "claude"},
             "claude",
             "one",
@@ -148,6 +158,51 @@ def test_enable_rejects_conversation_scope_without_target(monkeypatch, tmp_path)
                     "provider": "claude",
                 },
             )
+
+    response = asyncio.run(run())
+
+    assert response.status_code == 422
+
+
+def test_switch_rejects_conversation_scope_without_target(monkeypatch, tmp_path):
+    monkeypatch.setattr(main, "DATA_FILE", tmp_path / "current.json")
+    monkeypatch.setattr(main, "HISTORY_FILE", tmp_path / "history.json")
+
+    async def run():
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://127.0.0.1"
+        ) as client:
+            return await client.post(
+                "/switch",
+                json={
+                    "persona": "minimalist",
+                    "enabled": True,
+                    "scope": "conversation",
+                    "provider": "claude",
+                },
+            )
+
+    response = asyncio.run(run())
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("endpoint", ["/enable", "/switch"])
+def test_activation_rejects_enabled_off_scope(monkeypatch, tmp_path, endpoint):
+    monkeypatch.setattr(main, "DATA_FILE", tmp_path / "current.json")
+    monkeypatch.setattr(main, "HISTORY_FILE", tmp_path / "history.json")
+
+    payload = {"enabled": True, "scope": "off"}
+    if endpoint == "/switch":
+        payload["persona"] = "minimalist"
+
+    async def run():
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://127.0.0.1"
+        ) as client:
+            return await client.post(endpoint, json=payload)
 
     response = asyncio.run(run())
 

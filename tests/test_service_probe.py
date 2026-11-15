@@ -8,6 +8,8 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from server.version import APP_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBE = ROOT / "server" / "service_probe.py"
@@ -56,14 +58,14 @@ def run_probe(url):
 
 
 def test_probe_accepts_matching_service():
-    with version_server({"name": "第N人格", "version": "0.4.0"}) as url:
+    with version_server({"name": "第N人格", "version": APP_VERSION}) as url:
         result = run_probe(url)
 
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == {
         "status": "current",
         "name": "第N人格",
-        "version": "0.4.0",
+        "version": APP_VERSION,
     }
 
 

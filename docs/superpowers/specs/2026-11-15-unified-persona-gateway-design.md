@@ -76,7 +76,7 @@
 - `provider`：同一 provider 的所有新请求注入。
 - `global`：所有已接入入口注入。
 
-页面内对话生成并持久保存一个本地 `conversation_id`。Codex Hook 从 `UserPromptSubmit` 输入读取 `session_id` 并传给服务，因此可以真正区分 Codex 对话。其他平台 API 调用者需要显式传 `conversation_id`；未传时不能冒充“当前对话”。
+页面内对话按标签页生成本地 `conversation_id`。Codex 进入“当前对话”时，服务端先持久化等待状态并立即停用旧作用域；首个通过本地令牌认证的 `UserPromptSubmit` Hook 原子提交 `session_id` 并完成绑定。其他平台 API 调用者需要显式传 `conversation_id`；未传时不能冒充“当前对话”。
 
 ## 历史隔离
 
@@ -105,7 +105,9 @@
 - `POST /switch`：切换人格并设置启用作用域。
 - `POST /enable`：只修改启用状态和作用域，不切人格。
 - `GET /context`：按 provider / conversation 查询是否注入。
-- `GET /codex/context`：兼容入口，内部使用统一作用域解析。
+- `GET /codex/context`：只读兼容入口，不产生绑定副作用。
+- `POST /codex/context`：认证 Hook 入口，统一解析作用域并原子消费待绑定状态。
+- `POST /codex/bind`：进入等待状态，撤销旧作用域，避免绑定期间继续全局注入。
 - `POST /chat`：增加 `provider`、`conversation_id` 和带版本历史，兼容现有 OpenAI 请求字段。
 
 ## UI
@@ -136,4 +138,3 @@
 - 可在页面创建人格、切换、启用并立即对话。
 - 自动化测试覆盖适配器负载、作用域、路径校验、历史隔离和兼容行为。
 - 真实浏览器流程覆盖创建人格、切换作用域、发送对话和状态显示。
-

@@ -1,3 +1,2 @@
 APP_NAME = "第N人格"
-APP_VERSION = "0.4.0"
-
+APP_VERSION = "0.4.1"

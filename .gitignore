@@ -6,6 +6,7 @@ __pycache__/
 .pytest-*-check/
 docs/superpowers/plans/
 .playwright-cli/
+output/playwright/
 *.py[cod]
 *.egg-info/
 .venv/
