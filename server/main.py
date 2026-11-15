@@ -4,14 +4,16 @@ from threading import RLock
 import json
 import os
 import tempfile
+from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from server.activation import PROVIDERS, SCOPES, resolve_activation
 from server.persona_store import BUILTIN_PERSONAS, PersonaCreate, PersonaStore
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -41,6 +43,26 @@ class SwitchRequest(BaseModel):
     persona: str
     # 目前是单用户本地版。保留字段以兼容旧前端，不宣称支持多用户。
     user_id: str = "default"
+    enabled: bool | None = None
+    scope: Literal["off", "conversation", "provider", "global"] | None = None
+    provider: Literal["codex", "claude", "gemini", "deepseek", "doubao"] | None = None
+    conversation_id: str | None = Field(default=None, max_length=256)
+
+
+class EnableRequest(BaseModel):
+    enabled: bool
+    scope: Literal["off", "conversation", "provider", "global"]
+    provider: Literal["codex", "claude", "gemini", "deepseek", "doubao"] | None = None
+    conversation_id: str | None = Field(default=None, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.enabled and self.scope == "provider" and not self.provider:
+            raise ValueError("当前 AI 作用域需要 provider")
+        if self.enabled and self.scope == "conversation":
+            if not self.provider or not self.conversation_id:
+                raise ValueError("当前对话作用域需要 provider 和 conversation_id")
+        return self
 
 
 class ChatMessage(BaseModel):
@@ -64,6 +86,10 @@ def _default_state(user_id: str = "default") -> dict:
         "name": PERSONA_STORE.get(DEFAULT_PERSONA).name,
         "switched_at": datetime.now(timezone.utc).isoformat(),
         "version": 1,
+        "enabled": True,
+        "scope": "global",
+        "provider": None,
+        "conversation_id": None,
     }
 
 
@@ -110,6 +136,7 @@ def _recovery_version() -> int:
 def read_current(user_id: str = "default") -> dict:
     with STATE_LOCK:
         data = _read_json(DATA_FILE, None)
+        changed = False
         if not isinstance(data, dict) or not PERSONA_STORE.exists(str(data.get("persona", ""))):
             data = _default_state(user_id)
             data["version"] = _recovery_version()
@@ -126,8 +153,25 @@ def read_current(user_id: str = "default") -> dict:
                 append_history(data)
             except OSError:
                 pass
+        if "enabled" not in data:
+            data["enabled"] = True
+            changed = True
+        if data.get("scope") not in SCOPES:
+            data["scope"] = "global"
+            changed = True
+        if data.get("provider") not in PROVIDERS:
+            if data.get("provider") is not None:
+                changed = True
+            data["provider"] = None
+        if "conversation_id" not in data or not isinstance(
+            data.get("conversation_id"), (str, type(None))
+        ):
+            data["conversation_id"] = None
+            changed = True
         data.setdefault("user_id", user_id)
         data["name"] = PERSONA_STORE.get(data["persona"]).name
+        if changed:
+            _atomic_write_json(DATA_FILE, data)
         return data
 
 
@@ -141,6 +185,10 @@ def append_history(entry: dict) -> None:
         "switched_at": entry["switched_at"],
         "version": entry["version"],
         "previous": entry.get("previous"),
+        "enabled": entry.get("enabled", True),
+        "scope": entry.get("scope", "global"),
+        "provider": entry.get("provider"),
+        "conversation_id": entry.get("conversation_id"),
     })
     _atomic_write_json(HISTORY_FILE, history[-50:])
 
@@ -224,24 +272,43 @@ def current(user_id: str = "default"):
     return read_current(user_id)
 
 
-@app.get("/codex/context")
-def codex_context():
-    global LAST_CODEX_READ
+def _context_result(provider: str, conversation_id: str | None = None) -> dict:
     state = read_current()
     persona_id = state["persona"]
-    name = PERSONA_STORE.get(persona_id).name
-    result = {
+    persona = PERSONA_STORE.get(persona_id)
+    decision = resolve_activation(state, provider, conversation_id)
+    return {
+        "active": decision.active,
+        "reason": decision.reason,
         "persona": persona_id,
-        "name": name,
+        "name": persona.name,
         "version": state["version"],
-        "additional_context": build_persona_context(state),
+        "scope": state["scope"],
+        "provider": state.get("provider"),
+        "conversation_id": state.get("conversation_id"),
+        "additional_context": build_persona_context(state) if decision.active else "",
     }
+
+
+@app.get("/context")
+def context(provider: str, conversation_id: str | None = None):
+    if provider not in PROVIDERS:
+        raise HTTPException(400, f"不支持的 AI：{provider}")
+    return _context_result(provider, conversation_id)
+
+
+@app.get("/codex/context")
+def codex_context(conversation_id: str | None = None):
+    global LAST_CODEX_READ
+    result = _context_result("codex", conversation_id)
     with STATE_LOCK:
         LAST_CODEX_READ = {
             "last_read_at": datetime.now(timezone.utc).isoformat(),
-            "persona": persona_id,
-            "name": name,
-            "version": state["version"],
+            "persona": result["persona"],
+            "name": result["name"],
+            "version": result["version"],
+            "active": result["active"],
+            "conversation_id": conversation_id,
         }
     return result
 
@@ -273,6 +340,14 @@ def switch(req: SwitchRequest):
             "switched_at": datetime.now(timezone.utc).isoformat(),
             "version": previous["version"] + 1,
             "previous": previous.get("persona"),
+            "enabled": previous.get("enabled", True) if req.enabled is None else req.enabled,
+            "scope": req.scope or previous.get("scope", "global"),
+            "provider": req.provider if req.scope is not None else previous.get("provider"),
+            "conversation_id": (
+                req.conversation_id
+                if req.scope is not None
+                else previous.get("conversation_id")
+            ),
         }
         _atomic_write_json(DATA_FILE, data)
         try:
@@ -282,6 +357,29 @@ def switch(req: SwitchRequest):
             # 历史记录不可写时，不把已成功持久化的人格切换伪装成失败。
             history_saved = False
     return {"ok": True, "history_saved": history_saved, "message": f"已切换至【{data['name']}】", "current": data}
+
+
+@app.post("/enable")
+def enable(req: EnableRequest):
+    with STATE_LOCK:
+        previous = read_current()
+        data = {
+            **previous,
+            "enabled": req.enabled,
+            "scope": req.scope if req.enabled else "off",
+            "provider": req.provider if req.enabled else None,
+            "conversation_id": req.conversation_id if req.enabled else None,
+            "switched_at": datetime.now(timezone.utc).isoformat(),
+            "version": previous["version"] + 1,
+            "previous": previous["persona"],
+        }
+        _atomic_write_json(DATA_FILE, data)
+        try:
+            append_history(data)
+            history_saved = True
+        except OSError:
+            history_saved = False
+    return {"ok": True, "history_saved": history_saved, "current": data}
 
 
 @app.get("/history")
