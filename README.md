@@ -8,7 +8,7 @@
 
 第N人格把人格规则放进可读的 `SKILL.md`，由本地脚本服务统一管理，再通过 UI 调用 Codex、Claude、Gemini、DeepSeek 和豆包适配器。它不修改模型本身，也不删除聊天记录。
 
-- 当前版本：`v0.4.2`
+- 当前版本：`v0.4.3`
 - 适用范围：个人本地使用、Codex 桌面端、Claude / Gemini / DeepSeek / 豆包 API
 - 项目形态：**Skills + Codex Plugin + Local App**
 
@@ -27,9 +27,11 @@
 ## 从 GitHub 下载
 
 1. 打开 [GitHub Releases](https://github.com/Floatlive/The-Nth-Persona/releases)。
-2. 下载最新 Release 附件中的 `the-nth-persona-v*.zip`，不要下载来历不明的重新打包文件。
+2. 下载最新 Release 附件中的 `the-nth-persona-v*.zip`。Release 发布后，GitHub Actions 会自动生成并附加该文件；附件尚未出现时，可暂用页面的 **Source code (zip)**。
 3. 解压到普通可写目录，不要直接在 ZIP 压缩包内运行。
 4. 按下方系统说明启动。
+
+源码包不包含 Python 和依赖。首次启动需 Python 3.10+，并联网安装项目依赖；调用模型还需自行配置对应 API 凭据。当前 Release 附件可能尚未生成，需等待维护者发布新 Release。
 
 ## 你能得到什么
 

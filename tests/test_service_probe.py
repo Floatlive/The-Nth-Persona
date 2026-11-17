@@ -81,6 +81,20 @@ def test_probe_rejects_older_project_service():
     }
 
 
+def test_application_version_is_043_and_rejects_042_service():
+    assert APP_VERSION == "0.4.3"
+
+    with version_server({"name": "第N人格", "version": "0.4.2"}) as url:
+        result = run_probe(url)
+
+    assert result.returncode == 2, result.stderr
+    assert json.loads(result.stdout) == {
+        "status": "conflict",
+        "name": "第N人格",
+        "version": "0.4.2",
+    }
+
+
 def test_probe_reports_unavailable_service():
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
